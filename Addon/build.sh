@@ -11,7 +11,7 @@ if [ -n "${CHECK_URL}" ]; then
 echo "#!/bin/tclsh" > ./addon/update-check.cgi
 echo "set checkURL    \"${CHECK_URL}\"" >> ./addon/update-check.cgi
 echo "set downloadURL \"${DOWNLOAD_URL}\"" >> ./addon/update-check.cgi
-cat ../update-check.cgi.skeleton >> ./addon/update-check.cgi
+cat ../update-check.cgi.skel >> ./addon/update-check.cgi
 fi 
         
 chmod +x update_script
