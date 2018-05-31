@@ -14,29 +14,34 @@
 #include <LowPower.h>
 #include <Register.h>
 #include <MultiChannelDevice.h>
+#include <sensors/Bh1750.h>
 
 #define LED_PIN             4
 #define WINDCOUNTER_PIN     5
 #define RAINCOUNTER_PIN     6
 #define CONFIG_BUTTON_PIN   8
 #define WINDDIRECTION_PIN   A2
-#define SYSCLOCK_FACTOR     0.88
+
+#define SYSCLOCK_FACTOR     1.0
+#define BRIGHTNESS_FACTOR   1.2
+#define WIND_RADIUS         0.065
+
+                           // 0 , 22.5, 45  , 67.5, 90  ,112.5, 135, 157.5, 180 , 202.5, 225 , 247.5, 270 , 292.5, 315 , 337.5   
+const uint16_t WINDDIRS[] = {407, 999 , 228 ,  94 , 127 , 103 , 304, 114  , 147 , 135  , 570 ,  474 , 746 , 444  , 524 , 312};
+#define WINDDIR_TOLERANCE   5
 
 #define PEERS_PER_CHANNEL   6
 
 #include "Sensors/Sens_Bme280.h"
-#include "Sensors/Sens_Tsl2561.h"
 
 using namespace as;
 
 volatile uint32_t _raincounter = 0;
 volatile uint16_t _windcounter = 0;
-// N , NO , O  , SO , S  , SW , W  , NW
-const uint16_t WINDDIRS[] = {310, 151, 579, 754, 533, 418, 234, 131};
-#define WINDDIR_TOLERANCE   8
+
 
 const struct DeviceInfo PROGMEM devinfo = {
-  {0xF1, 0xD0, 0x01},       	 // Device ID
+  {0xF1, 0xD0, 0x01},        // Device ID
   "JPWEA00001",           	 // Device Serial
   {0xF1, 0xD0},            	 // Device Model
   0x10,                   	 // Firmware Version
@@ -49,35 +54,20 @@ typedef AvrSPI<10, 11, 12, 13> RadioSPI;
 typedef AskSin<StatusLed<LED_PIN>, NoBattery, Radio<RadioSPI, 2> > Hal;
 Hal hal;
 
-class WindCounterAlarm : public Alarm {
-  public:
-    WindCounterAlarm () : Alarm (seconds2ticks(5 * 0.88)) {
-      async(true);
-    }
-    virtual ~WindCounterAlarm () {}
-
-    void trigger (__attribute__((unused)) AlarmClock& clock)  {
-      set(seconds2ticks(5 * 0.88));
-      clock.add(*this);
-    }
-} wca;
-
 class WeatherEventMsg : public Message {
   public:
-    void init(uint8_t msgcnt, int16_t temp, uint16_t airPressure, uint8_t humidity, uint32_t brightness, uint16_t raincounter, uint16_t windspeed, uint8_t winddir, uint8_t winddirrange) {
-      Message::init(0x17, msgcnt, 0x70, (msgcnt % 20 == 1) ? BIDI : BCAST, (temp >> 8) & 0x7f, temp & 0xff);
+    void init(uint8_t msgcnt, int16_t temp, uint16_t airPressure, uint8_t humidity, uint16_t brightness, uint16_t raincounter, uint16_t windspeed, uint8_t winddir, uint8_t winddirrange) {
+      Message::init(0x15, msgcnt, 0x70, (msgcnt % 20 == 1) ? BIDI : BCAST, (temp >> 8) & 0x7f, temp & 0xff);
       pload[0] = (airPressure >> 8) & 0xff;
       pload[1] = airPressure & 0xff;
       pload[2] = humidity;
-      pload[3] = (brightness >> 24) & 0xff;
-      pload[4] = (brightness >> 16) & 0xff;
-      pload[5] = (brightness >>  8) & 0xff;
-      pload[6] = (brightness >>  0) & 0xff;
-      pload[7] = (raincounter >> 8) & 0xff;
-      pload[8] = raincounter & 0xff;
-      pload[9] = (windspeed >> 8) & 0xff | (winddirrange << 6);
-      pload[10] = windspeed & 0xff;
-      pload[11] = winddir;
+      pload[3] = (brightness >>  8) & 0xff;
+      pload[4] = brightness & 0xff;
+      pload[5] = (raincounter >> 8) & 0xff;
+      pload[6] = raincounter & 0xff;
+      pload[7] = (windspeed >> 8) & 0xff | (winddirrange << 6);
+      pload[8] = windspeed & 0xff;
+      pload[9] = winddir;
     }
 };
 
@@ -114,33 +104,25 @@ class WeatherChannel : public Channel<Hal, List1, EmptyList, List4, PEERS_PER_CH
     int16_t       temperature;
     uint16_t      airPressure;
     uint8_t       humidity;
-    uint32_t      brightness;
+    uint16_t      brightness;
     uint16_t      raincounter;
     uint16_t      windspeed;
     uint8_t       winddir;
     uint8_t       winddirrange;
-    bool          sensorSetupDone;
 
     Sens_Bme280  bme280;
-    Sens_Tsl2561 tsl2561;
-
+    Bh1750<>     bh1750;
   public:
-    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), sensorSetupDone(false) {}
+    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)) {}
     virtual ~WeatherChannel () {}
 
     virtual void trigger (__attribute__ ((unused)) AlarmClock& clock) {
-      // delayed sensor setup
-      if (!sensorSetupDone) {
-        bme280.init();
-        tsl2561.init();
-        sensorSetupDone = true;
-        DPRINTLN("Sensor setup done");
-      }
-
       winddirrange = 0; // 0  - 3 (0, 22,5, 45, 67,5°)
-      measure_speed();
+
+      measure_windspeed();
+      measure_winddirection();
       measure_thpb();
-      measure_direction();
+      measure_rain();
 
       msg.init(device().nextcount(), temperature, airPressure, humidity, brightness, raincounter, windspeed, winddir, winddirrange);
       device().sendPeerEvent(msg, *this);
@@ -150,23 +132,35 @@ class WeatherChannel : public Channel<Hal, List1, EmptyList, List4, PEERS_PER_CH
       clock.add(*this);
     }
 
-    void measure_speed() {
-      windspeed = 0;
-      float R = 0.065; //metres from center pin to middle of cup
-      float N = _windcounter / device().getList0().updIntervall();
-      //V = 2 * R * Pi * N 
-      float kmph =  3.141593 * 2 * R * N /* * 12 */ * 3.6;
+    void measure_rain() {
+      raincounter = _raincounter;
+      DPRINT(F("RAINCOUNTER            : ")); DDECLN(raincounter);
     }
 
-    void measure_direction() {
-      winddir = 0;     // Grad / 5: 60° = 12, 0° = Norden
+    void measure_windspeed() {
+      windspeed = 0;
+      float Umdrehungen = (_windcounter * 1.0) / (device().getList0().updIntervall() * SYSCLOCK_FACTOR);
+      //V = 2 * R * Pi * N
+      float kmph =  3.141593 * 2 * WIND_RADIUS * Umdrehungen * 3.6;
+      windspeed = kmph * 100;
+      DPRINT(F("WINDSPEED _windcounter : ")); DDECLN(_windcounter);
+      DPRINT(F("WINDSPEED windspeed    : ")); DDECLN(windspeed);
+      _windcounter = 0;
+    }
+
+    void measure_winddirection() {
+      winddir = 0;     // Grad / 3: 60° = 20, 0° = Norden
+      uint8_t tt = 0;
       uint16_t aVal = analogRead(WINDDIRECTION_PIN);
-      for (int i = 0; i < sizeof(WINDDIRS); i++) {
+      for (int i = 0; i < 16; i++) {
         if (aVal < WINDDIRS[i] + WINDDIR_TOLERANCE && aVal > WINDDIRS[i] - WINDDIR_TOLERANCE) {
-          winddir = i * 9;
+          winddir = i * 7.5;
+          tt = i;
           break;
         }
       }
+      DPRINT(F("WINDDIR aVal           : ")); DDEC(aVal); DPRINT(F(" i = ")); DDECLN(tt);
+      DPRINT(F("WINDDIR winddir        : ")); DDECLN(winddir);
     }
 
     // here we do the measurement
@@ -178,16 +172,17 @@ class WeatherChannel : public Channel<Hal, List1, EmptyList, List4, PEERS_PER_CH
       airPressure = bme280.pressureNN();
       humidity    = bme280.humidity();
 
-      tsl2561.measure();
-      brightness = tsl2561.brightnessLux(); // also available: brightnessVis(), brightnessIR(), brightnessFull(), but these are dependent on integration time setting
-      raincounter = _raincounter;
-      DPRINT("RAINCOUNTER = "); DDECLN(raincounter);
+      bh1750.measure();
+      brightness = bh1750.brightness() * BRIGHTNESS_FACTOR; 
+      DPRINT(F("BRIGHTNESS             : ")  );DDECLN(brightness);
     }
 
     void setup(Device<Hal, SensorList0>* dev, uint8_t number, uint16_t addr) {
       Channel::setup(dev, number, addr);
-      tick = seconds2ticks(3);	        // first message in 5 sec.
-      sysclock.add(wca);
+      tick = seconds2ticks(3);	        // first message in 3 sec.
+      bh1750.init();
+      bme280.init();
+
       sysclock.add(*this);
     }
 
