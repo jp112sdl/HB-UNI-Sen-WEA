@@ -12,6 +12,8 @@ echo "set checkURL    \"${CHECK_URL}\"" >> ./addon/update-check.cgi
 echo "set downloadURL \"${DOWNLOAD_URL}\"" >> ./addon/update-check.cgi
 cat ../update-check.cgi.skel >> ./addon/update-check.cgi
 fi 
+
+find ./rc.d/ -type f -exec mv {} ./rc.d/${ADDON_NAME} \;
         
 chmod +x update_script
 chmod +x addon/install*
