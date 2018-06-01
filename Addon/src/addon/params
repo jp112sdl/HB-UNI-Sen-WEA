@@ -2,7 +2,7 @@
 # Versionsnummer
 ADDON_VERSION=2.1
 
-# ADDON_NAME und Skript-Name im rc.d müssen identisch sein 
+# ADDON_NAME, wird verwendet für das rc-Script sowie als Unterverzeichnis der Installation /usr/local/addons/... 
 ADDON_NAME=hb-uni-sen-wea
 
 # in der WebUI angezeigter Gerätetyp
