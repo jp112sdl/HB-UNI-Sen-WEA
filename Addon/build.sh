@@ -1,9 +1,8 @@
 #!/bin/sh
-ADDON=HB-UNI-Sen-WEA
-rm $ADDON-addon.tgz
+source ./src/addon/params 
+rm ${DEVICE}-addon.tgz
 find . -name ".DS_Store" -exec rm -rf {} \;
-cd $ADDON-addon-src
-source ./addon/params 
+cd src
 echo ${ADDON_VERSION} > ./addon/VERSION
 
 rm ./addon/update-check.cgi
@@ -18,5 +17,5 @@ chmod +x update_script
 chmod +x addon/install*
 chmod +x addon/update-check.cgi
 chmod +x rc.d/*
-tar -zcvf ../$ADDON-addon.tgz *
+tar -zcvf ../${DEVICE}-addon.tgz *
 cd ..
