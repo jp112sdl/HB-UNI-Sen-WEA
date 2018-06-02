@@ -1,0 +1,213 @@
+! Luftdruck Tendenz berechnen
+! Script alle 30min aufrufen
+! folgende Systemvariablen müssen erstellt werden:
+!		Luftdruck_aktuell	Type = Zahl | Wertebeteich = 0 - 65000 | Maßeinheit = hPa
+!		Luftdruck_tendenz	Type = Wertliste | Wertebeteich = st|fa;st|gleich;steigend;fa|stark st;gleichbleibend;fa|st;fa|gleich;fallend;st|stark fa
+!		Luftdruck_30	Type = Zahl | Wertebeteich = 0 - 65000 | Maßeinheit = hPa
+!		Luftdruck_60	Type = Zahl | Wertebeteich = 0 - 65000 | Maßeinheit = hPa
+!		Luftdruck_90	Type = Zahl | Wertebeteich = 0 - 65000 | Maßeinheit = hPa
+!		Luftdruck_120	Type = Zahl | Wertebeteich = 0 - 65000 | Maßeinheit = hPa
+!		Luftdruck_150	Type = Zahl | Wertebeteich = 0 - 65000 | Maßeinheit = hPa
+!		Luftdruck_180	Type = Zahl | Wertebeteich = 0 - 65000 | Maßeinheit = hPa
+
+
+! 0 = 1.+ 2. Std. steigend, 3. Std. fallend 		--> (st|fa)          
+! 1 = 1.+ 2. Std. steigend, 3. Std.gleichbleibend 	--> (st|gleich)
+! 2 = Alle 3 Stunden steigend 			--> (steigend)
+! 3 = 1. Std. fallend, 2.+ 3. Std. steigend 		--> (fa|stark st)
+! 4 = Alle 3 Stunden gleichbleibend 			--> (gleichbleibend)
+! 5 = 1.+ 2. Std. fallend, 3. Std. steigend 		--> (fa|st)
+! 6 = 1.+ 2. Std. fallend, 3. Std. gleichbleibend 	--> (fa|gleich)
+! 7 = Alle 3 Stunden fallend 				--> (fallend)
+! 8 = 1. Std. steigend, 2.+ 3. Std. fallend 		--> (st|stark fa)
+
+
+boolean debug = false; 							!debug true/false
+var konstLD = 0.08;							!Wert für definition von Konstanten Luftdruck (ca. 0,08hPa/h)
+
+if (debug == true){
+var LDsensor = 927.900; 							!Luftdruck vom Sensor simulieren
+!var LDsensor = dom.GetObject("BidCos-RF.JPWEA00001:1.AIR_PRESSURE").Value(); 	!oder echten Sensor verwenden !!!!!ACHTUNG - Seriennummer anpassen!!!!!
+}
+else {
+var LDsensor = dom.GetObject("BidCos-RF.JPWEA00001:1.AIR_PRESSURE").Value(); 	!Luftdruck vom Sensor auslesen   !!!!!ACHTUNG - Seriennummer anpassen!!!!!
+}
+var LDaktuell = dom.GetObject("Luftdruck_aktuell");			!Variable - Luftdruck_aktuell auslesen
+var LD30 = dom.GetObject("Luftdruck_30");				!Variable - Luftdruck_30 auslesen
+var LD60 = dom.GetObject("Luftdruck_60");				!Variable - Luftdruck_60 auslesen
+var LD90 = dom.GetObject("Luftdruck_90");				!Variable - Luftdruck_90 auslesen
+var LD120 = dom.GetObject("Luftdruck_120");				!Variable - Luftdruck_120 auslesen
+var LD150 = dom.GetObject("Luftdruck_150");				!Variable - Luftdruck_150 auslesen
+var LD180 = dom.GetObject("Luftdruck_180");				!Variable - Luftdruck_180 auslesen
+var LDtend = dom.GetObject("Luftdruck_Tendenz");			!Variable - Luftdruck_Tendenz auslesen
+
+
+if (debug == true) {
+	WriteLine("Luftdruck Sensor = "#LDsensor.ToString(3) #"hPa");
+	WriteLine("Luftdruck aktuell = "#LDaktuell.Value().ToString(3) #"hPa");
+	WriteLine("Luftdruck vor 30min = "#LD30.Value().ToString(3) #"hPa");
+	WriteLine("Luftdruck vor 60min = "#LD60.Value().ToString(3) #"hPa");
+	WriteLine("Luftdruck vor 90min = "#LD90.Value().ToString(3) #"hPa");
+	WriteLine("Luftdruck vor 120min = "#LD120.Value().ToString(3) #"hPa");
+	WriteLine("Luftdruck vor 150min = "#LD150.Value().ToString(3) #"hPa");
+	WriteLine("Luftdruck vor 180min = "#LD180.Value().ToString(3) #"hPa");
+	WriteLine("Luftdruck Tendenz = "# LDtend.Value().ToString(3));
+}
+
+!Messwerte jeweil um 30min nach hinten versetzen
+LD180.Variable(LD150.Value());
+LD150.Variable(LD120.Value());
+LD120.Variable(LD90.Value());
+LD90.Variable(LD60.Value());
+LD60.Variable(LD30.Value());
+LD30.Variable(LDaktuell.Value());
+LDaktuell.Variable(LDsensor.ToString(3));
+
+if (debug == true) {
+	
+	WriteLine("Werte um 30mim nach hinten versetzt");
+}
+
+
+
+!Berechnung Stunde#3
+var LDmin; 	!Hilfe für gleichbleibenden Luftdruck berechnen
+var LDmax; 	!Hilfe für gleichbleibenden Luftdruck berechnen
+var Stunde1; 	!0 = unverändert | 1 = gestiegen | 2 = gesunken
+var Stunde2; 	!0 = unverändert | 1 = gestiegen | 2 = gesunken
+var Stunde3; 	!0 = unverändert | 1 = gestiegen | 2 = gesunken
+
+
+
+LDmin = LDsensor - konstLD;
+LDmax = LDsensor + konstLD;
+
+if (debug == true) {	
+	WriteLine("Luftdruck Stunde#3 min = "# LDmin.ToString(3) #"hPa");
+	WriteLine("Luftdruck Stunde#3 max = "# LDmax.ToString(3)  #"hPa");
+}
+
+
+!Luftdruck auswerten Stunde#3
+if ((LD60.Value() >= LDmin)  &&  (LD60.Value() <= LDmax)) {
+	if (debug == true) {WriteLine("Luftdruck Stunde#3 ist unverändert");}
+	Stunde3 = 0;
+}
+elseif (LDsensor < LD60.Value()) { 
+	if (debug == true) {WriteLine("Luftdruck Stunde#3 ist gesunken");}
+	Stunde3 = 2;
+}
+elseif (LDsensor > LD60.Value()) { 
+	if (debug == true) {WriteLine("Luftdruck Stunde#3 ist gestiegen");}
+	Stunde3 = 1;
+}
+
+
+!Berechnung Stunde#2
+LDmin = LD60.Value() - konstLD;
+LDmax = LD60.Value() + konstLD;
+
+if (debug == true) {	
+	WriteLine("Luftdruck Stunde#2 min = "# LDmin.ToString(3) #"hPa");
+	WriteLine("Luftdruck Stunde#2 max = "# LDmax.ToString(3)  #"hPa");
+}
+
+
+!Luftdruck auswerten Stunde#2
+if ((LD120.Value() >= LDmin)  &&  (LD120.Value() <= LDmax)) {
+	if (debug == true) {WriteLine("Luftdruck Stunde#2 ist unverändert");}
+	Stunde2 = 0;
+}
+elseif (LD60.Value() < LD120.Value()) { 
+	if (debug == true) {WriteLine("Luftdruck Stunde#2 ist gesunken");}
+	Stunde2 = 2;
+}
+elseif (LD60.Value() > LD120.Value()) { 
+	if (debug == true) {WriteLine("Luftdruck Stunde#2 ist gestiegen");}
+	Stunde2 = 1;
+}
+
+
+
+!Berechnung Stunde#1
+LDmin = LD120.Value() - konstLD;
+LDmax = LD120.Value() + konstLD;
+
+if (debug == true) {	
+	WriteLine("Luftdruck Stunde#1 min = "# LDmin.ToString(3) #"hPa");
+	WriteLine("Luftdruck Stunde#1 max = "# LDmax.ToString(3) #"hPa");
+}
+
+
+!Luftdruck auswerten Stunde#1
+if ((LD180.Value() >= LDmin)  &&  (LD180.Value() <= LDmax)) {
+	if (debug == true) {WriteLine("Luftdruck Stunde#1 ist unverändert");}
+	Stunde1 = 0;
+}
+elseif (LD120.Value() < LD180.Value()) { 
+	if (debug == true) {WriteLine("Luftdruck Stunde#1 ist gesunken");}
+	Stunde1 = 2;
+}
+elseif (LD120.Value() > LD180.Value()) { 
+	if (debug == true) {WriteLine("Luftdruck Stunde#1 ist gestiegen");}
+	Stunde1 = 1;
+}
+
+
+
+if (debug == true) {
+	WriteLine("St1= "# Stunde1 #" | St2 = "# Stunde2 #" | St3 = "# Stunde3);
+	var x = 0;
+	x = Stunde3 + Stunde2 + Stunde1;
+	WriteLine("St1+2+3 = "# x);
+}
+
+!Auswertung 
+
+if ((Stunde1 == 1) && (Stunde2 == 1) && (Stunde3 == 2)){
+	if (debug == true) {WriteLine("steigend | fallend");}
+	LDtend.Variable(0);
+}
+elseif ((Stunde1 == 1) && (Stunde2 == 1) && (Stunde3 == 0)){
+	if (debug == true) {WriteLine("steigend | gleichbleibend");}
+	LDtend.Variable(1);
+}
+elseif ((Stunde1 == 1) && (Stunde2 == 1) && (Stunde3 == 1)){
+	if (debug == true) {WriteLine("steigend");}
+	LDtend.Variable(2);
+}
+elseif ((Stunde1 == 2) && (Stunde2 == 1) && (Stunde3 == 1)){
+	if (debug == true) {WriteLine("fallend | stark steigend");}
+	LDtend.Variable(3);
+}
+elseif ((Stunde1 == 0) && (Stunde2 == 0) && (Stunde3 == 0)){
+	if (debug == true) {WriteLine("gleichbleibend");}
+	LDtend.Variable(4);
+}
+elseif ((Stunde1 == 2) && (Stunde2 == 2) && (Stunde3 == 1)){
+	if (debug == true) {WriteLine("fallend | steigend");}
+	LDtend.Variable(5);
+}
+elseif ((Stunde1 == 2) && (Stunde2 == 2) && (Stunde3 == 0)){
+	if (debug == true) {WriteLine("fallend | gleichbleibend");}
+	LDtend.Variable(6);
+}
+elseif ((Stunde1 == 2) && (Stunde2 == 2) && (Stunde3 == 2)){
+	if (debug == true) {WriteLine("fallend");}
+	LDtend.Variable(7);
+}
+elseif ((Stunde1 == 1) && (Stunde2 == 2) && (Stunde3 == 2)){
+	if (debug == true) {WriteLine("steigend | stark fallend");}
+	LDtend.Variable(8);
+}
+
+
+
+WriteLine("fertig");
+
+
+
+
+
+
+
