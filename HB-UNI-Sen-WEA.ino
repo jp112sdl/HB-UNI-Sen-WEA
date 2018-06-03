@@ -26,8 +26,9 @@
 #define BRIGHTNESS_FACTOR   1.2
 #define WIND_RADIUS         0.065
 
-                           // 0 , 22.5, 45  , 67.5, 90  ,112.5, 135, 157.5, 180 , 202.5, 225 , 247.5, 270 , 292.5, 315 , 337.5   
-const uint16_t WINDDIRS[] = {407, 999 , 228 ,  94 , 127 , 103 , 304, 114  , 147 , 135  , 570 ,  474 , 746 , 444  , 524 , 312};
+//                             N                      O                       S                         W 
+//entspricht Windrichtung in ° 0 , 22.5, 45  , 67.5, 90  ,112.5, 135, 157.5, 180 , 202.5, 225 , 247.5, 270 , 292.5, 315 , 337.5
+const uint16_t WINDDIRS[] = { 407, 999 , 228 ,  94 , 127 , 103 , 304, 114  , 147 , 135  , 570 ,  474 , 746 , 444  , 524 , 312};
 #define WINDDIR_TOLERANCE   5
 
 #define PEERS_PER_CHANNEL   6
@@ -108,6 +109,7 @@ class WeatherChannel : public Channel<Hal, List1, EmptyList, List4, PEERS_PER_CH
     uint16_t      raincounter;
     uint16_t      windspeed;
     uint8_t       winddir;
+    uint8_t       idxoldwdir;
     uint8_t       winddirrange;
 
     Sens_Bme280  bme280;
@@ -117,8 +119,6 @@ class WeatherChannel : public Channel<Hal, List1, EmptyList, List4, PEERS_PER_CH
     virtual ~WeatherChannel () {}
 
     virtual void trigger (__attribute__ ((unused)) AlarmClock& clock) {
-      winddirrange = 0; // 0  - 3 (0, 22,5, 45, 67,5°)
-
       measure_windspeed();
       measure_winddirection();
       measure_thpb();
@@ -149,18 +149,32 @@ class WeatherChannel : public Channel<Hal, List1, EmptyList, List4, PEERS_PER_CH
     }
 
     void measure_winddirection() {
-      winddir = 0;     // Grad / 3: 60° = 20, 0° = Norden
-      uint8_t tt = 0;
+      //Windrichtung
+      winddir = 0;     // Grad/3: 60° = 20; 0° = Norden
+      uint8_t idxwdir = 0;
+
       uint16_t aVal = analogRead(WINDDIRECTION_PIN);
-      for (int i = 0; i < 16; i++) {
+      for (int i = 0; i < sizeof(WINDDIRS) / sizeof(uint16_t); i++) {
         if (aVal < WINDDIRS[i] + WINDDIR_TOLERANCE && aVal > WINDDIRS[i] - WINDDIR_TOLERANCE) {
           winddir = i * 7.5;
-          tt = i;
+          idxwdir = i;
           break;
         }
       }
-      DPRINT(F("WINDDIR aVal           : ")); DDEC(aVal); DPRINT(F(" i = ")); DDECLN(tt);
-      DPRINT(F("WINDDIR winddir        : ")); DDECLN(winddir);
+
+      //Schwankungsbreite
+      winddirrange = 3; // 0  - 3 (0, 22,5, 45, 67,5°)
+      int idxdiff = abs(idxwdir - idxoldwdir);
+
+      if (idxdiff <= 3) winddirrange = idxdiff;
+      if (idxwdir <= 2 && idxoldwdir >= 13) winddirrange = (sizeof(WINDDIRS) / sizeof(uint16_t)) - idxdiff;
+      if (winddirrange > 3) winddirrange = 3;
+
+      idxoldwdir = idxwdir;
+
+      DPRINT(F("WINDDIR aVal           : ")); DDEC(aVal); DPRINT(F(" i = ")); DDECLN(idxwdir);
+      DPRINT(F("WINDDIR winddir/3      : ")); DDECLN(winddir);
+      DPRINT(F("WINDDIR winddirrange   : ")); DDECLN(winddirrange);
     }
 
     // here we do the measurement
@@ -173,8 +187,8 @@ class WeatherChannel : public Channel<Hal, List1, EmptyList, List4, PEERS_PER_CH
       humidity    = bme280.humidity();
 
       bh1750.measure();
-      brightness = bh1750.brightness() * BRIGHTNESS_FACTOR; 
-      DPRINT(F("BRIGHTNESS             : ")  );DDECLN(brightness);
+      brightness = bh1750.brightness() * BRIGHTNESS_FACTOR;
+      DPRINT(F("BRIGHTNESS             : ")  ); DDECLN(brightness);
     }
 
     void setup(Device<Hal, SensorList0>* dev, uint8_t number, uint16_t addr) {
