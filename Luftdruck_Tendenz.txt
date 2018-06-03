@@ -1,8 +1,11 @@
 ! Luftdruck Tendenz berechnen
+! Ingo Pirker 02.06.2018
+
 ! Script alle 30min aufrufen
 ! folgende Systemvariablen müssen erstellt werden:
 !		Luftdruck_aktuell	Type = Zahl | Wertebeteich = 0 - 65000 | Maßeinheit = hPa
 !		Luftdruck_tendenz	Type = Wertliste | Wertebeteich = st|fa;st|gleich;steigend;fa|stark st;gleichbleibend;fa|st;fa|gleich;fallend;st|stark fa
+!		Luftdruck_Bedeutung	Type = Wertliste | Wertebeteich = stürmisch;regnerisch;wechselhaft;sonnig;sehr trocken
 !		Luftdruck_30	Type = Zahl | Wertebeteich = 0 - 65000 | Maßeinheit = hPa
 !		Luftdruck_60	Type = Zahl | Wertebeteich = 0 - 65000 | Maßeinheit = hPa
 !		Luftdruck_90	Type = Zahl | Wertebeteich = 0 - 65000 | Maßeinheit = hPa
@@ -11,9 +14,11 @@
 !		Luftdruck_180	Type = Zahl | Wertebeteich = 0 - 65000 | Maßeinheit = hPa
 
 
+!Quelle: https://rechneronline.de/barometer/
+!Bedeutung Variable Luftdruck_tendenz:
 ! 0 = 1.+ 2. Std. steigend, 3. Std. fallend 		--> (st|fa)          
 ! 1 = 1.+ 2. Std. steigend, 3. Std.gleichbleibend 	--> (st|gleich)
-! 2 = Alle 3 Stunden steigend 			--> (steigend)
+! 2 = Alle 3 Stunden steigend 				--> (steigend)
 ! 3 = 1. Std. fallend, 2.+ 3. Std. steigend 		--> (fa|stark st)
 ! 4 = Alle 3 Stunden gleichbleibend 			--> (gleichbleibend)
 ! 5 = 1.+ 2. Std. fallend, 3. Std. steigend 		--> (fa|st)
@@ -21,16 +26,23 @@
 ! 7 = Alle 3 Stunden fallend 				--> (fallend)
 ! 8 = 1. Std. steigend, 2.+ 3. Std. fallend 		--> (st|stark fa)
 
+!Bedeutung Variable Luftdruck_Bedeutung:
+!	    <= 980hPa = sehr tief, stürmisch		--> (stürmisch)
+!	980 - 1000hPa = tief, regnerisch		--> (regnerisch)
+!      1000 - 1020hPa = normal, wechselhaft		--> (wechselhaft)
+!      1020 - 1040hPa = hoch, sonnig			--> (sonnig)
+!             >= 1040 = sehr hoch, sehr trocken		--> (sehr trocken)
+
 
 boolean debug = false; 							!debug true/false
-var konstLD = 0.08;							!Wert für definition von Konstanten Luftdruck (ca. 0,08hPa/h)
+var konstLD = 0.042;							!Wert für definition von Konstanten Luftdruck (ca. 0,042hPa/h | 0,504hPa/12h)
 
 if (debug == true){
 var LDsensor = 927.900; 							!Luftdruck vom Sensor simulieren
-!var LDsensor = dom.GetObject("BidCos-RF.JPWEA00001:1.AIR_PRESSURE").Value(); 	!oder echten Sensor verwenden !!!!!ACHTUNG - Seriennummer anpassen!!!!!
+!var LDsensor = dom.GetObject("BidCos-RF.UNISENS001:1.AIR_PRESSURE").Value(); 	!oder echten Sensor verwenden !!!!!ACHTUNG - Seriennummer anpassen!!!!!
 }
 else {
-var LDsensor = dom.GetObject("BidCos-RF.JPWEA00001:1.AIR_PRESSURE").Value(); 	!Luftdruck vom Sensor auslesen   !!!!!ACHTUNG - Seriennummer anpassen!!!!!
+var LDsensor = dom.GetObject("BidCos-RF.UNISENS001:1.AIR_PRESSURE").Value(); 	!Luftdruck vom Sensor auslesen   !!!!!ACHTUNG - Seriennummer anpassen!!!!!
 }
 var LDaktuell = dom.GetObject("Luftdruck_aktuell");			!Variable - Luftdruck_aktuell auslesen
 var LD30 = dom.GetObject("Luftdruck_30");				!Variable - Luftdruck_30 auslesen
@@ -40,6 +52,7 @@ var LD120 = dom.GetObject("Luftdruck_120");				!Variable - Luftdruck_120 auslese
 var LD150 = dom.GetObject("Luftdruck_150");				!Variable - Luftdruck_150 auslesen
 var LD180 = dom.GetObject("Luftdruck_180");				!Variable - Luftdruck_180 auslesen
 var LDtend = dom.GetObject("Luftdruck_Tendenz");			!Variable - Luftdruck_Tendenz auslesen
+var LDbed = dom.GetObject("Luftdruck_Bedeutung");			!Variable - Luftdruck_Bedeutung auslesen
 
 
 if (debug == true) {
@@ -51,8 +64,33 @@ if (debug == true) {
 	WriteLine("Luftdruck vor 120min = "#LD120.Value().ToString(3) #"hPa");
 	WriteLine("Luftdruck vor 150min = "#LD150.Value().ToString(3) #"hPa");
 	WriteLine("Luftdruck vor 180min = "#LD180.Value().ToString(3) #"hPa");
-	WriteLine("Luftdruck Tendenz = "# LDtend.Value().ToString(3));
+	WriteLine("Luftdruck Tendenz = "# LDtend.Value());
+	WriteLine("Luftdruck Bedeutung = "# LDbed.Value());
 }
+
+
+!Luftdruck Bedeutung ermitteln
+if (LDsensor < 980) {
+	if (debug == true) {WriteLine("Luftdruck Bedeutung = sehr tief, stürmisch");}
+	LDbed.Variable(0);
+}
+if ((LDsensor >= 980)  &&  (LDsensor < 1000)) {
+	if (debug == true) {WriteLine("Luftdruck Bedeutung = tief, regnerisch");}
+	LDbed.Variable(1);
+}
+if ((LDsensor >= 1000)  &&  (LDsensor < 1020)) {
+	if (debug == true) {WriteLine("Luftdruck Bedeutung = normal, wechselhaft");}
+	LDbed.Variable(2);
+}
+if ((LDsensor >= 1020)  &&  (LDsensor < 1040)) {
+	if (debug == true) {WriteLine("Luftdruck Bedeutung = hoch, sonnig");}
+	LDbed.Variable(3);
+}
+if (LDsensor >= 1040) {
+	if (debug == true) {WriteLine("Luftdruck Bedeutung = sehr hoch, sehr trocken");}
+	LDbed.Variable(4);
+}
+
 
 !Messwerte jeweil um 30min nach hinten versetzen
 LD180.Variable(LD150.Value());
