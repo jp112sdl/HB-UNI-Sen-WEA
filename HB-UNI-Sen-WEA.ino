@@ -142,7 +142,7 @@ class WeatherChannel : public Channel<Hal, List1, EmptyList, List4, PEERS_PER_CH
       float Umdrehungen = (_windcounter * 1.0) / (device().getList0().updIntervall() * SYSCLOCK_FACTOR);
       //V = 2 * R * Pi * N
       float kmph =  3.141593 * 2 * WIND_RADIUS * Umdrehungen * 3.6;
-      windspeed = kmph * 100;
+      windspeed = kmph * 10;
       DPRINT(F("WINDSPEED _windcounter : ")); DDECLN(_windcounter);
       DPRINT(F("WINDSPEED windspeed    : ")); DDECLN(windspeed);
       _windcounter = 0;
