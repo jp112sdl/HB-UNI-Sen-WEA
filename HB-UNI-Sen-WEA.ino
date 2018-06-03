@@ -1,7 +1,7 @@
 //- -----------------------------------------------------------------------------------------------------------------------
 // AskSin++
 // 2016-10-31 papa Creative Commons - http://creativecommons.org/licenses/by-nc-sa/3.0/de/
-// HB-UNI-Sensor1
+// some parts (BME280 measurement) from HB-UNI-Sensor1
 // 2018-05-11 Tom Major (Creative Commons)
 // 2018-05-21 jp112sdl (Creative Commons)
 //- -----------------------------------------------------------------------------------------------------------------------
@@ -26,9 +26,10 @@
 #define BRIGHTNESS_FACTOR   1.2
 #define WIND_RADIUS         0.065
 
-//                             N                      O                       S                         W 
+//                             N                      O                       S                         W
 //entspricht Windrichtung in ° 0 , 22.5, 45  , 67.5, 90  ,112.5, 135, 157.5, 180 , 202.5, 225 , 247.5, 270 , 292.5, 315 , 337.5
-const uint16_t WINDDIRS[] = { 407, 999 , 228 ,  94 , 127 , 103 , 304, 114  , 147 , 135  , 570 ,  474 , 746 , 444  , 524 , 312};
+const uint16_t WINDDIRS[] = { 407, 999 , 228 ,  215 , 773 , 279 , 304, 290  , 880 , 523  , 570 ,  474 , 746 , 624  , 806 , 370};
+//(kleinste Werteabweichung / 2) - 1
 #define WINDDIR_TOLERANCE   5
 
 #define PEERS_PER_CHANNEL   6
@@ -111,11 +112,13 @@ class WeatherChannel : public Channel<Hal, List1, EmptyList, List4, PEERS_PER_CH
     uint8_t       winddir;
     uint8_t       idxoldwdir;
     uint8_t       winddirrange;
+    bool          firstRun;
 
     Sens_Bme280  bme280;
     Bh1750<>     bh1750;
+
   public:
-    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)) {}
+    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), firstRun(true) {}
     virtual ~WeatherChannel () {}
 
     virtual void trigger (__attribute__ ((unused)) AlarmClock& clock) {
@@ -130,11 +133,19 @@ class WeatherChannel : public Channel<Hal, List1, EmptyList, List4, PEERS_PER_CH
       uint16_t updCycle = this->device().getList0().updIntervall();
       tick = seconds2ticks(updCycle * SYSCLOCK_FACTOR);
       clock.add(*this);
+      firstRun = false;
     }
 
     void measure_rain() {
-      raincounter = _raincounter;
-      DPRINT(F("RAINCOUNTER            : ")); DDECLN(raincounter);
+      DPRINT(F("RAINCOUNTER            : "));
+      if (firstRun) {
+        //manchmal wird bei Initialisierung die ISR ausgelöst, das setzen wir hier zurück
+        _raincounter = 0;
+        DPRINTLN(F("first run - nothing"));
+      } else {
+        raincounter = _raincounter;
+        DDECLN(raincounter);
+      }
     }
 
     void measure_windspeed() {
@@ -149,12 +160,16 @@ class WeatherChannel : public Channel<Hal, List1, EmptyList, List4, PEERS_PER_CH
     }
 
     void measure_winddirection() {
-      //Windrichtung
-      winddir = 0;     // Grad/3: 60° = 20; 0° = Norden
+      //Windrichtung Grad/3: 60° = 20; 0° = Norden
+      winddir = 0;
       uint8_t idxwdir = 0;
+      uint16_t aVal = 0;
+      for (uint8_t i = 0; i <= 0xf; i++) {
+        aVal += analogRead(WINDDIRECTION_PIN);
+      }
+      aVal = aVal >> 4;
 
-      uint16_t aVal = analogRead(WINDDIRECTION_PIN);
-      for (int i = 0; i < sizeof(WINDDIRS) / sizeof(uint16_t); i++) {
+      for (uint8_t i = 0; i < sizeof(WINDDIRS) / sizeof(uint16_t); i++) {
         if (aVal < WINDDIRS[i] + WINDDIR_TOLERANCE && aVal > WINDDIRS[i] - WINDDIR_TOLERANCE) {
           winddir = i * 7.5;
           idxwdir = i;
@@ -179,7 +194,6 @@ class WeatherChannel : public Channel<Hal, List1, EmptyList, List4, PEERS_PER_CH
 
     // here we do the measurement
     void measure_thpb() {
-
       uint16_t height = this->device().getList0().height();
       bme280.measure(height);
       temperature = bme280.temperature();
