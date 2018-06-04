@@ -13,4 +13,14 @@ https://www.thingiverse.com/thing:2821592
 
 #### Schaltplan
 
-![complete](Images/wiring.png)
+![wiring](Images/wiring.png)
+
+
+#### Addon für die CCU / RaspberryMatic
+
+Einstellungen:<br>
+![einstellungen](Images/CCU_Einstellungen.png)
+<br>Bedienung:<br>
+![bedienung](Images/CCU_Bedienung.png)
+
+
