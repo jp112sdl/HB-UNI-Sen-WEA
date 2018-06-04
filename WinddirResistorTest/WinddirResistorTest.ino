@@ -8,7 +8,7 @@
   O  = 579
   SO = 754
 */
-const uint16_t WINDDIRS[] = { 407, 999 , 228 ,  215 , 773 , 279 , 304, 290  , 880 , 523  , 570 ,  474 , 746 , 624  , 806 , 370};
+const uint16_t WINDDIRS[] = { 523  , 570 ,  474 , 746 , 624  , 806 , 370, 407, 999 , 228 ,  215 , 773 , 279 , 304, 290  , 880 };
 #define WINDDIR_TOLERANCE   5
 #define WINDDIRECTION_PIN   A2
 
