@@ -28,7 +28,7 @@
 
 //                             N                      O                       S                         W
 //entspricht Windrichtung in ° 0 , 22.5, 45  , 67.5, 90  ,112.5, 135, 157.5, 180 , 202.5, 225 , 247.5, 270 , 292.5, 315 , 337.5
-const uint16_t WINDDIRS[] = { 407, 999 , 228 ,  215 , 773 , 279 , 304, 290  , 880 , 523  , 570 ,  474 , 746 , 624  , 806 , 370};
+const uint16_t WINDDIRS[] = { 523  , 570 ,  474 , 746 , 624  , 806 , 370, 407, 999 , 228 ,  215 , 773 , 279 , 304, 290  , 880 };
 //(kleinste Werteabweichung / 2) - 1
 #define WINDDIR_TOLERANCE   5
 
