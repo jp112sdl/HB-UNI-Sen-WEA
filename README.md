@@ -1,5 +1,5 @@
 # HB-UNI-Sen-WEA
-## Selbstbau-Wetterstation für HomeMatic
+## Selbstbau-Wetterstation (mit Netzteilbetrieb) für HomeMatic 
 ![complete](Images/4.png)
 
 <br>
