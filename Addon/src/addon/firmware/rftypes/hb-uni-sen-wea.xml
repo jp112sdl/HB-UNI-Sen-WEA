@@ -53,7 +53,18 @@
       <link_roles>
         <source name="WEATHER_TH" />
       </link_roles>
-      <paramset type="MASTER" id="HB-UNI-Sen-WEA_master" />
+     <paramset type="MASTER" id="HB-UNI-Sen-WEA_master">
+       <parameter id="Anemometer Radius (cm)">
+         <logical type="float" min="0" max="25.5" unit="" default="6.5" />              
+           <physical type="integer" interface="config" list="1" index="1.0" size="1" />
+           <conversion type="float_integer_scale" factor="10.0" />
+          </parameter>                                                            
+          <parameter id="Anemometer Calibration Factor">
+           <logical type="float" min="0" max="1000.0" unit="" default="1.0" /> 
+           <physical type="integer" interface="config" list="1" index="2.0" size="2" />
+           <conversion type="float_integer_scale" factor="10.0" />
+         </parameter>         
+      </paramset>
       <paramset type="VALUES" id="HB-UNI-Sen-WEA_values">
         <parameter id="TEMPERATURE" operations="read,event">
           <logical type="float" min="-50.0" max="120.0" unit="°C">

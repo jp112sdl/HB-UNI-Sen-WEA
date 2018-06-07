@@ -24,7 +24,6 @@
 
 #define SYSCLOCK_FACTOR     1.0
 #define BRIGHTNESS_FACTOR   1.2
-#define WIND_RADIUS         0.065
 
 //                             N                      O                       S                         W
 //entspricht Windrichtung in ° 0 , 22.5, 45  , 67.5, 90  ,112.5, 135, 157.5, 180 , 202.5, 225 , 247.5, 270 , 292.5, 315 , 337.5
@@ -99,7 +98,32 @@ class SensorList0 : public RegList0<Reg0> {
     }
 };
 
-class WeatherChannel : public Channel<Hal, List1, EmptyList, List4, PEERS_PER_CHANNEL, SensorList0>, public Alarm {
+DEFREGISTER(UReg1, 0x01, 0x02, 0x03)
+class SensorList1 : public RegList1<UReg1> {
+  public:
+    SensorList1 (uint16_t addr) : RegList1<UReg1>(addr) {}
+    bool AnemometerRadius (uint8_t value) const {
+      return this->writeRegister(0x01, value & 0xff);
+    }
+    uint8_t AnemometerRadius () const {
+      return this->readRegister(0x01, 0);
+    }
+
+    bool AnemometerCalibrationFactor (uint16_t value) const {
+      return this->writeRegister(0x02, (value >> 8) & 0xff) && this->writeRegister(0x03, value & 0xff);
+    }
+    uint16_t AnemometerCalibrationFactor () const {
+      return (this->readRegister(0x02, 0) << 8) + this->readRegister(0x03, 0);
+    }
+
+    void defaults () {
+      clear();
+      AnemometerRadius(65);
+      AnemometerCalibrationFactor(10);
+    }
+};
+
+class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_PER_CHANNEL, SensorList0>, public Alarm {
 
     WeatherEventMsg msg;
 
@@ -152,8 +176,8 @@ class WeatherChannel : public Channel<Hal, List1, EmptyList, List4, PEERS_PER_CH
       windspeed = 0;
       float Umdrehungen = (_windcounter * 1.0) / (device().getList0().updIntervall() * SYSCLOCK_FACTOR);
       //V = 2 * R * Pi * N
-      float kmph =  3.141593 * 2 * WIND_RADIUS * Umdrehungen * 3.6;
-      windspeed = kmph * 10;
+      float kmph =  3.141593 * 2 * this->getList1().AnemometerRadius() * Umdrehungen * 3.6 * (float)(this->getList1().AnemometerCalibrationFactor() / 10.0);
+      windspeed = kmph;
       DPRINT(F("WINDSPEED _windcounter : ")); DDECLN(_windcounter);
       DPRINT(F("WINDSPEED windspeed    : ")); DDECLN(windspeed);
       _windcounter = 0;
@@ -215,7 +239,10 @@ class WeatherChannel : public Channel<Hal, List1, EmptyList, List4, PEERS_PER_CH
     }
 
     void configChanged() {
-      //DPRINTLN("Config changed: List1");
+      DPRINTLN("* Config changed       : List1");
+      DPRINTLN(F("* ANEMOMETER           : "));
+      DPRINT(F("*  - RADIUS            : ")); DDECLN(this->getList1().AnemometerRadius());
+      DPRINT(F("*  - CALIBRATIONFACTOR : ")); DDECLN(this->getList1().AnemometerCalibrationFactor());
     }
 
     uint8_t status () const {
@@ -235,13 +262,9 @@ class SensChannelDevice : public MultiChannelDevice<Hal, WeatherChannel, 1, Sens
 
     virtual void configChanged () {
       TSDevice::configChanged();
-      DPRINTLN("Config Changed: List0");
-
-      uint16_t updCycle = this->getList0().updIntervall();
-      DPRINT(F("updCycle: ")); DDECLN(updCycle);
-
-      uint16_t height = this->getList0().height();
-      DPRINT(F("height: ")); DDECLN(height);
+      DPRINTLN("* Config Changed       : List0");
+      DPRINT(F("* SENDEINTERVALL       : ")); DDECLN(this->getList0().updIntervall());
+      DPRINT(F("* ALTITUDE             : ")); DDECLN(this->getList0().height());
     }
 };
 
