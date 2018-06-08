@@ -176,6 +176,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       windspeed = 0;
       float Umdrehungen = (_windcounter * 1.0) / (device().getList0().updIntervall() * SYSCLOCK_FACTOR);
       //V = 2 * R * Pi * N
+      //AnemometerRadius() ist in Dezimeter angegeben! (6.5 in der WebUI -> AnemometerRadius() = 65)
       float kmph =  3.141593 * 2 * (float)(this->getList1().AnemometerRadius() / 100.0) * Umdrehungen * 3.6 * (float)(this->getList1().AnemometerCalibrationFactor() / 10.0);
       windspeed = kmph;
       DPRINT(F("WINDSPEED _windcounter : ")); DDECLN(_windcounter);
