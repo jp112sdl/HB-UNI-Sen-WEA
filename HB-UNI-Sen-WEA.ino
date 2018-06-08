@@ -58,7 +58,7 @@ Hal hal;
 class WeatherEventMsg : public Message {
   public:
     void init(uint8_t msgcnt, int16_t temp, uint16_t airPressure, uint8_t humidity, uint16_t brightness, uint16_t raincounter, uint16_t windspeed, uint8_t winddir, uint8_t winddirrange) {
-      Message::init(0x15, msgcnt, 0x70, (msgcnt % 20 == 1) ? BIDI : BCAST, (temp >> 8) & 0x7f, temp & 0xff);
+      Message::init(0x15, msgcnt, 0x70, BCAST, (temp >> 8) & 0x7f, temp & 0xff);
       pload[0] = (airPressure >> 8) & 0xff;
       pload[1] = airPressure & 0xff;
       pload[2] = humidity;
@@ -176,7 +176,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       windspeed = 0;
       float Umdrehungen = (_windcounter * 1.0) / (device().getList0().updIntervall() * SYSCLOCK_FACTOR);
       //V = 2 * R * Pi * N
-      float kmph =  3.141593 * 2 * this->getList1().AnemometerRadius() * Umdrehungen * 3.6 * (float)(this->getList1().AnemometerCalibrationFactor() / 10.0);
+      float kmph =  3.141593 * 2 * (float)(this->getList1().AnemometerRadius() / 100.0) * Umdrehungen * 3.6 * (float)(this->getList1().AnemometerCalibrationFactor() / 10.0);
       windspeed = kmph;
       DPRINT(F("WINDSPEED _windcounter : ")); DDECLN(_windcounter);
       DPRINT(F("WINDSPEED windspeed    : ")); DDECLN(windspeed);
