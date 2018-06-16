@@ -135,7 +135,14 @@
             <event frame="WEATHER_EVENT"/>
           </physical>
           <conversion type="integer_integer_scale" div="45" mul="2"/>
-        </parameter>   
+        </parameter>  
+        <parameter id="BOE_SPEED" operations="read,event">
+          <logical type="float" min="0.0" max="1638.3" unit="km/h"/>
+          <physical type="integer" interface="command" value_id="BOE_SPEED" no_init="true">
+            <event frame="WEATHER_EVENT"/>
+          </physical>
+          <conversion type="float_integer_scale" factor="10.0"/>
+        </parameter> 
       </paramset>  
       <paramset type="LINK" id="HB-UNI-Sen-WEA_link"></paramset>
     </channel>
@@ -150,6 +157,7 @@
       <parameter type="integer" index="18.0" size="1.6" param="WIND_SPEED"/>
       <parameter type="integer" index="18.6" size="0.2" param="WIND_DIRECTION_RANGE"/>
       <parameter type="integer" index="20.0" size="1.0" param="WIND_DIRECTION"/>
+      <parameter type="integer" index="21.0" size="2.0" param="BOE_SPEED"/>
     </frame>
   </frames>
   <paramset_defs></paramset_defs>
