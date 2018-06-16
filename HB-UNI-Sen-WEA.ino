@@ -127,9 +127,7 @@ class SensorList1 : public RegList1<UReg1> {
 };
 
 class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_PER_CHANNEL, SensorList0>, public Alarm {
-
     WeatherEventMsg msg;
-
     int16_t       temperature;
     uint16_t      airPressure;
     uint8_t       humidity;
@@ -141,22 +139,46 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 
     uint8_t       winddir;
     uint8_t       idxoldwdir;
-    float         lastkmph;
     uint8_t       winddirrange;
     bool          firstRun;
+
+    uint8_t       anemometerRadius;
+    uint8_t       anemometerCalibrationFactor;
 
     Sens_Bme280  bme280;
     Bh1750<>     bh1750;
 
+
   public:
-    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), firstRun(true) {}
+    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), firstRun(true), windspeed(0), ws_measure(*this) {}
     virtual ~WeatherChannel () {}
+
+
+    class WindSpeedMeasureAlarm : public Alarm {
+        WeatherChannel& chan;
+        uint16_t      windspeed;
+      public:
+        WindSpeedMeasureAlarm (WeatherChannel& c) : Alarm (seconds2ticks(WINDSPEED_MEASUREINTERVAL_SECONDS)), chan(c) {}
+        virtual ~WindSpeedMeasureAlarm () {}
+
+        void trigger (__attribute__ ((unused)) AlarmClock& clock)  {
+          chan.measure_windspeed();
+          tick = (seconds2ticks(WINDSPEED_MEASUREINTERVAL_SECONDS));
+          clock.add(*this);
+        }
+    } ws_measure;
 
     virtual void trigger (__attribute__ ((unused)) AlarmClock& clock) {
       measure_winddirection();
       measure_thpb();
       measure_rain();
-      windspeed = windspeed / windspeed_measure_count;
+
+      if (!firstRun)
+        windspeed = windspeed / windspeed_measure_count;
+
+      DPRINT(F("BOESPEED boespeed        : ")); DDECLN(boespeed);
+      DPRINT(F("WINDSPEED windspeed(mcnt): ")); DDECLN(windspeed_measure_count);
+      DPRINT(F("WINDSPEED windspeed      : ")); DDECLN(windspeed);
 
       msg.init(device().nextcount(), temperature, airPressure, humidity, brightness, raincounter, windspeed, winddir, winddirrange, boespeed);
 
@@ -167,55 +189,23 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       clock.add(*this);
       firstRun = false;
       windspeed = 0;
+      boespeed = 0;
       windspeed_measure_count = 0;
     }
-
-    void measure_rain() {
-      DPRINT(F("RAINCOUNTER            : "));
-      if (firstRun) {
-        //manchmal wird bei Initialisierung die ISR ausgelöst, das setzen wir hier zurück
-        _raincounter = 0;
-        DPRINTLN(F("first run - nothing"));
-      } else {
-        raincounter = _raincounter;
-        DDECLN(raincounter);
-      }
-    }
-
-    class WindSpeedMeasureAlarm : public Alarm {
-        WeatherChannel& chan;
-            uint16_t      windspeed;
-      public:
-        WindSpeedMeasureAlarm () : Alarm (seconds2ticks(WINDSPEED_MEASUREINTERVAL_SECONDS)) {}
-        virtual ~WindSpeedMeasureAlarm () {}
-
-        void trigger (AlarmClock& clock)  {
-          set(seconds2ticks(WINDSPEED_MEASUREINTERVAL_SECONDS));
-          clock.add(*this);
-          DPRINTLN(F("ALARM: WindSpeedMeasureAlarm"));
-          chan.measure_windspeed();
-        }
-    } ws_measure;
 
     void measure_windspeed() {
 #ifdef NSENSORS
       _windcounter = random(20);
 #endif
-      windspeed_measure_count++;
-      float Umdrehungen = (_windcounter * 1.0) / (WINDSPEED_MEASUREINTERVAL_SECONDS * SYSCLOCK_FACTOR);
       //V = 2 * R * Pi * N
       //AnemometerRadius() ist in Dezimeter angegeben! (6.5 in der WebUI -> AnemometerRadius() = 65)
-      float kmph =  3.141593 * 2 * (float)(this->getList1().AnemometerRadius() / 100.0) * Umdrehungen * 3.6 * (float)(this->getList1().AnemometerCalibrationFactor() / 10.0);
-      if (kmph > lastkmph) {
+      int   kmph =  3.141593 * 2 * (anemometerRadius / 100.0) * ((_windcounter / (WINDSPEED_MEASUREINTERVAL_SECONDS * SYSCLOCK_FACTOR)) * 3.6 * (anemometerCalibrationFactor / 10.0);
+      if (kmph > boespeed) {
         boespeed = kmph;
-        DPRINT(F("BOESPEED boespeed      : ")); DDECLN(boespeed);
       }
-      lastkmph = kmph;
-
       windspeed += kmph;
-      DPRINT(F("WINDSPEED _windcounter : ")); DDECLN(_windcounter);
-      DPRINT(F("WINDSPEED windspeed    : ")); DDECLN(windspeed);
       _windcounter = 0;
+      windspeed_measure_count++;
     }
 
     void measure_winddirection() {
@@ -256,6 +246,17 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       DPRINT(F("WINDDIR winddirrange   : ")); DDECLN(winddirrange);
     }
 
+    void measure_rain() {
+      DPRINT(F("RAINCOUNTER            : "));
+      if (firstRun) {
+        //manchmal wird bei Initialisierung die ISR ausgelöst, das setzen wir hier zurück
+        _raincounter = 0;
+        DPRINTLN(F("first run - nothing"));
+      } else {
+        raincounter = _raincounter;
+        DDECLN(raincounter);
+      }
+    }
     // here we do the measurement
     void measure_thpb() {
       uint16_t height = this->device().getList0().height();
@@ -289,10 +290,12 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     }
 
     void configChanged() {
+      anemometerRadius = this->getList1().AnemometerRadius();
+      anemometerCalibrationFactor = this->getList1().AnemometerCalibrationFactor();
       DPRINTLN("* Config changed       : List1");
       DPRINTLN(F("* ANEMOMETER           : "));
-      DPRINT(F("*  - RADIUS            : ")); DDECLN(this->getList1().AnemometerRadius());
-      DPRINT(F("*  - CALIBRATIONFACTOR : ")); DDECLN(this->getList1().AnemometerCalibrationFactor());
+      DPRINT(F("*  - RADIUS            : ")); DDECLN(anemometerRadius);
+      DPRINT(F("*  - CALIBRATIONFACTOR : ")); DDECLN(anemometerCalibrationFactor);
     }
 
     uint8_t status () const {
@@ -307,7 +310,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 class SensChannelDevice : public MultiChannelDevice<Hal, WeatherChannel, 1, SensorList0> {
   public:
     typedef MultiChannelDevice<Hal, WeatherChannel, 1, SensorList0> TSDevice;
-    SensChannelDevice(const DeviceInfo& info, uint16_t addr) : TSDevice(info, addr) {}
+    SensChannelDevice(const DeviceInfo& info, uint16_t addr) : TSDevice(info, addr) {}//, ws_measure(*this) {}
     virtual ~SensChannelDevice () {}
 
     virtual void configChanged () {
