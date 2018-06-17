@@ -6,7 +6,7 @@
 // 2018-05-21 jp112sdl (Creative Commons)
 //- -----------------------------------------------------------------------------------------------------------------------
 // #define NDEBUG
-#define NSENSORS
+// #define NSENSORS
 // #define USE_OTA_BOOTLOADER
 
 #define  EI_NOTEXTERNAL
@@ -18,6 +18,24 @@
 #include <sensors/Bh1750.h>
 #include "Sensors/Sens_Bme280.h"
 #include "Sensors/Sens_VEML6070.h"
+/*#include <AsyncDelay.h>
+  #include <SoftWire.h>
+  #include <AS3935.h>
+
+  AS3935 as3935;
+  AsyncDelay d;
+
+  void int2Handler(void) {
+  as3935.interruptHandler();
+  }
+
+  void readRegs(uint8_t start, uint8_t end)
+  {
+  for (uint8_t reg = start; reg < end; ++reg) {
+    delay(50);
+    uint8_t val;
+    as3935.readRegister(reg, val);
+  }*/
 
 #define LED_PIN             4
 #define WINDCOUNTER_PIN     5
@@ -58,8 +76,8 @@ Hal hal;
 
 class WeatherEventMsg : public Message {
   public:
-    void init(uint8_t msgcnt, int16_t temp, uint16_t airPressure, uint8_t humidity, uint16_t brightness, uint16_t raincounter, uint16_t windspeed, uint8_t winddir, uint8_t winddirrange, uint16_t boespeed, uint8_t uvindex) {
-      Message::init(0x18, msgcnt, 0x70, BCAST, (temp >> 8) & 0x7f, temp & 0xff);
+    void init(uint8_t msgcnt, int16_t temp, uint16_t airPressure, uint8_t humidity, uint16_t brightness, uint16_t raincounter, uint16_t windspeed, uint8_t winddir, uint8_t winddirrange, uint16_t boespeed, uint8_t uvindex, uint16_t lightningcounter, uint8_t lightningdistance) {
+      Message::init(0x1a, msgcnt, 0x70, BCAST, (temp >> 8) & 0x7f, temp & 0xff);
       pload[0] = (airPressure >> 8) & 0xff;
       pload[1] = airPressure & 0xff;
       pload[2] = humidity;
@@ -72,7 +90,9 @@ class WeatherEventMsg : public Message {
       pload[9] = winddir;
       pload[10] = (boespeed >> 8) & 0xff;
       pload[11] = boespeed & 0xff;
-      pload[12] = uvindex;
+      pload[12] = (uvindex & 0xff) | (lightningdistance << 4);
+      pload[13] = (lightningcounter >> 8) & 0xff;
+      pload[14] = lightningcounter & 0xff;
     }
 };
 
@@ -138,6 +158,8 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     uint16_t      boespeed;
     uint8_t       uvindex;
     uint8_t       windspeed_measure_count;
+    uint16_t      lightningcounter;
+    uint8_t       lightningdistance;
 
     uint8_t       winddir;
     uint8_t       idxoldwdir;
@@ -155,8 +177,6 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
   public:
     WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), firstRun(true), windspeed(0), ws_measure(*this) {}
     virtual ~WeatherChannel () {}
-
-
     class WindSpeedMeasureAlarm : public Alarm {
         WeatherChannel& chan;
         uint16_t      windspeed;
@@ -176,6 +196,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       measure_uv();
       measure_thpb();
       measure_rain();
+      measure_lightning();
 
       if (!firstRun)
         windspeed = windspeed / windspeed_measure_count;
@@ -183,7 +204,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       DPRINT(F("BOESPEED boespeed        : ")); DDECLN(boespeed);
       DPRINT(F("WINDSPEED windspeed      : ")); DDECLN(windspeed);
 
-      msg.init(device().nextcount(), temperature, airPressure, humidity, brightness, raincounter, windspeed, winddir, winddirrange, boespeed, uvindex);
+      msg.init(device().nextcount(), temperature, airPressure, humidity, brightness, raincounter, windspeed, winddir, winddirrange, boespeed, uvindex, lightningcounter, lightningdistance);
 
       device().sendPeerEvent(msg, *this);
 
@@ -261,11 +282,20 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       }
     }
 
+    void measure_lightning() {
+#ifdef NSENSORS
+      lightningcounter = random(65534);
+      lightningdistance = random(15);
+#endif
+    }
+
     void measure_uv() {
 #ifdef NSENSORS
       uvindex = random(11);
 #else
+      veml6070.measure();
       uvindex = veml6070.UVIndex();
+
 #endif
       DPRINT(F("UV UVIndex             : ")); DDECLN(uvindex);
     }
@@ -326,7 +356,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 class SensChannelDevice : public MultiChannelDevice<Hal, WeatherChannel, 1, SensorList0> {
   public:
     typedef MultiChannelDevice<Hal, WeatherChannel, 1, SensorList0> TSDevice;
-    SensChannelDevice(const DeviceInfo& info, uint16_t addr) : TSDevice(info, addr) {} {}
+    SensChannelDevice(const DeviceInfo& info, uint16_t addr) : TSDevice(info, addr) {}
     virtual ~SensChannelDevice () {}
 
     virtual void configChanged () {
@@ -351,6 +381,17 @@ void setup () {
 
   if ( digitalPinToInterrupt(RAINCOUNTER_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(RAINCOUNTER_PIN, raincounterISR, RISING); else attachInterrupt(digitalPinToInterrupt(RAINCOUNTER_PIN), raincounterISR, RISING);
   if ( digitalPinToInterrupt(WINDCOUNTER_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(WINDCOUNTER_PIN, windcounterISR, RISING); else attachInterrupt(digitalPinToInterrupt(WINDCOUNTER_PIN), windcounterISR, RISING);
+
+  /*as3935.initialise(14, 17, 0x03, 3, true, NULL);
+    as3935.start();
+    d.start(1000, AsyncDelay::MILLIS);
+    while (!d.isExpired())
+    as3935.process();
+
+    readRegs(0, 0x09);
+    as3935.setNoiseFloor(0);
+    attachInterrupt(2, int2Handler, RISING);
+    d.start(1000, AsyncDelay::MILLIS);*/
 }
 
 void loop() {

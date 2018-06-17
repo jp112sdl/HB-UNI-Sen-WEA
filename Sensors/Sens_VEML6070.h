@@ -27,6 +27,8 @@ public:
   void measure (__attribute__((unused)) bool async=false) {
     if( present() == true ) {
       _uvvalue = _veml.readUV();
+        DPRINT(F("UV readUV              : ")); DDECLN(_uvvalue);
+
       _uvindex = 0;
       if (_uvvalue >= 187)
         _uvindex = 1;

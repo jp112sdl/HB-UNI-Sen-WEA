@@ -146,9 +146,22 @@
         <parameter id="UVINDEX" operations="read,event">
           <logical type="integer" min="0" max="11" unit="">
           </logical>
-          <physical type="integer" interface="command" value_id="UVINDEX">
+          <physical type="integer" interface="command" value_id="UVINDEX" no_init="true">
             <event frame="WEATHER_EVENT" />
           </physical>
+        </parameter>
+        <parameter id="LIGHTNING_COUNTER" operations="read,event">
+          <logical type="integer" min="0" max="65535" unit=""/>
+          <physical type="integer" interface="command" value_id="LIGHTNING_COUNTER" no_init="true">
+            <event frame="WEATHER_EVENT"/>
+          </physical>
+        </parameter>
+        <parameter id="LIGHTNING_DISTANCE" operations="read,event">
+          <logical type="integer" min="0" max="45" unit="km"/>
+          <physical type="integer" interface="command" value_id="LIGHTNING_DISTANCE" no_init="true">
+            <event frame="WEATHER_EVENT"/>
+          </physical>
+          <conversion type="integer_integer_scale" div="3"/>
         </parameter>
       </paramset>  
       <paramset type="LINK" id="HB-UNI-Sen-WEA_link"></paramset>
@@ -165,7 +178,11 @@
       <parameter type="integer" index="18.6" size="0.2" param="WIND_DIRECTION_RANGE"/>
       <parameter type="integer" index="20.0" size="1.0" param="WIND_DIRECTION"/>
       <parameter type="integer" index="21.0" size="2.0" param="BOE_SPEED"/>
-      <parameter type="integer" index="23.0" size="1.0" param="UVINDEX"/>      
+
+      <parameter type="integer" index="23.0" size="0.4" param="UVINDEX"/>      
+      <parameter type="integer" index="23.4" size="0.4" param="LIGHTNING_DISTANCE"/>      
+
+      <parameter type="integer" index="24.0" size="2.0" param="LIGHTNING_COUNTER"/>      
     </frame>
   </frames>
   <paramset_defs></paramset_defs>
