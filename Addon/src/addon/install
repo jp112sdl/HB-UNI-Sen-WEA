@@ -41,6 +41,54 @@ if [ -z "`cat $webuiFile | grep \"$DEVICE\"`" ]; then
 	sed -i "s/\($webuiSearch\)/\1$webuiInsert/g" $webuiFile
 fi
 
+### Edit stringtable_de.txt ###
+stringtable_deFile="/www/config/stringtable_de.txt"
+stringtable_deInsert="BOE_SPEED	\${stringTableWeatherBoeSpeed} \n"
+if [ -z "`cat $stringtable_deFile | grep \"BOE_SPEED"`" ]; then
+    sed -i "1s/^/\1$stringtable_deInsert/" $stringtable_deFile
+fi
+
+stringtable_deInsert="UVINDEX	\${stringTableWeatherUvIndex} \n"
+if [ -z "`cat $stringtable_deFile | grep \"UVINDEX"`" ]; then
+    sed -i "1s/^/\1$stringtable_deInsert/" $stringtable_deFile
+fi
+
+stringtable_deInsert="LIGHTNING_COUNTER	\${stringTableWeatherLightningCounter} \n"
+if [ -z "`cat $stringtable_deFile | grep \"LIGHTNING_COUNTER"`" ]; then
+    sed -i "1s/^/\1$stringtable_deInsert/" $stringtable_deFile
+fi
+
+stringtable_deInsert="LIGHTNING_DISTANCE	\${stringTableWeatherLightningDistance} \n"
+if [ -z "`cat $stringtable_deFile | grep \"LIGHTNING_DISTANCE"`" ]; then
+    sed -i "1s/^/\1$stringtable_deInsert/" $stringtable_deFile
+fi
+
+### Edit translate.lang.stringtable.js ###
+translate_deFile="/www/webui/js/lang/de/translate.lang.stringtable.js"
+translate_deSearch="\"dummy\" : \"\","
+translate_deInsert="\n    \"stringTableWeatherBoeSpeed\" : \"Boe-Geschwindigkeit\","
+if [ -z "`cat $translate_deFile | grep \"stringTableWeatherBoeSpeed\"`" ]; then
+	sed -i "s/\($translate_deSearch\)/\1$translate_deInsert/g" $translate_deFile
+fi
+
+translate_deSearch="\"dummy\" : \"\","
+translate_deInsert="\n    \"stringTableWeatherUvIndex\" : \"UV-Index\","
+if [ -z "`cat $translate_deFile | grep \"stringTableWeatherUvIndex\"`" ]; then
+	sed -i "s/\($translate_deSearch\)/\1$translate_deInsert/g" $translate_deFile
+fi
+
+translate_deSearch="\"dummy\" : \"\","
+translate_deInsert="\n    \"stringTableWeatherLightningCounter\" : \"Blitz-Z%E4hler\","
+if [ -z "`cat $translate_deFile | grep \"stringTableWeatherLightningCounter\"`" ]; then
+	sed -i "s/\($translate_deSearch\)/\1$translate_deInsert/g" $translate_deFile
+fi
+
+translate_deSearch="\"dummy\" : \"\","
+translate_deInsert="\n    \"stringTableWeatherLightningDistance\" : \"Blitz-Entfernung\","
+if [ -z "`cat $translate_deFile | grep \"stringTableWeatherLightningDistance\"`" ]; then
+	sed -i "s/\($translate_deSearch\)/\1$translate_deInsert/g" $translate_deFile
+fi
+
 sync
 
 mount -o remount,ro /

@@ -1,5 +1,5 @@
 #!/bin/tclsh
-set checkURL    "https://raw.githubusercontent.com/jp112sdl/HB-UNI-Sen-WEA/master/Addon/HB-UNI-Sen-WEA-addon-src/addon/VERSION"
+set checkURL    "https://raw.githubusercontent.com/jp112sdl/HB-UNI-Sen-WEA/master/Addon/src/addon/VERSION"
 set downloadURL "https://github.com/jp112sdl/HB-UNI-Sen-WEA/raw/master/Addon/HB-UNI-Sen-WEA-addon.tgz"
 catch {
   set input $env(QUERY_STRING)

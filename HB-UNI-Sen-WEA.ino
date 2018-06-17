@@ -6,6 +6,7 @@
 // 2018-05-21 jp112sdl (Creative Commons)
 //- -----------------------------------------------------------------------------------------------------------------------
 // #define NDEBUG
+// #define NSENSORS
 // #define USE_OTA_BOOTLOADER
 
 #define  EI_NOTEXTERNAL
@@ -15,6 +16,26 @@
 #include <Register.h>
 #include <MultiChannelDevice.h>
 #include <sensors/Bh1750.h>
+#include "Sensors/Sens_Bme280.h"
+#include "Sensors/Sens_VEML6070.h"
+/*#include <AsyncDelay.h>
+  #include <SoftWire.h>
+  #include <AS3935.h>
+
+  AS3935 as3935;
+  AsyncDelay d;
+
+  void int2Handler(void) {
+  as3935.interruptHandler();
+  }
+
+  void readRegs(uint8_t start, uint8_t end)
+  {
+  for (uint8_t reg = start; reg < end; ++reg) {
+    delay(50);
+    uint8_t val;
+    as3935.readRegister(reg, val);
+  }*/
 
 #define LED_PIN             4
 #define WINDCOUNTER_PIN     5
@@ -22,28 +43,26 @@
 #define CONFIG_BUTTON_PIN   8
 #define WINDDIRECTION_PIN   A2
 
-#define SYSCLOCK_FACTOR     1.0
-#define BRIGHTNESS_FACTOR   1.2
+#define SYSCLOCK_FACTOR     1.0 //only relevant when using sleep mode
+#define BRIGHTNESS_FACTOR   1.2 //you have to multiply BH1750 raw value by 1.2
 
 //                             N                      O                       S                         W
 //entspricht Windrichtung in ° 0 , 22.5, 45  , 67.5, 90  ,112.5, 135, 157.5, 180 , 202.5, 225 , 247.5, 270 , 292.5, 315 , 337.5
 const uint16_t WINDDIRS[] = { 523  , 570 ,  474 , 746 , 624  , 806 , 370, 407, 999 , 228 ,  215 , 773 , 279 , 304, 290  , 880 };
 //(kleinste Werteabweichung / 2) - 1
 #define WINDDIR_TOLERANCE   5
+#define WINDSPEED_MEASUREINTERVAL_SECONDS 5
 
 #define PEERS_PER_CHANNEL   6
-
-#include "Sensors/Sens_Bme280.h"
 
 using namespace as;
 
 volatile uint32_t _raincounter = 0;
 volatile uint16_t _windcounter = 0;
 
-
 const struct DeviceInfo PROGMEM devinfo = {
-  {0xF1, 0xD0, 0x01},        // Device ID
-  "JPWEA00001",           	 // Device Serial
+  {0xF1, 0xD0, 0x02},        // Device ID
+  "JPWEA00002",           	 // Device Serial
   {0xF1, 0xD0},            	 // Device Model
   0x10,                   	 // Firmware Version
   as::DeviceType::THSensor,  // Device Type
@@ -57,8 +76,8 @@ Hal hal;
 
 class WeatherEventMsg : public Message {
   public:
-    void init(uint8_t msgcnt, int16_t temp, uint16_t airPressure, uint8_t humidity, uint16_t brightness, uint16_t raincounter, uint16_t windspeed, uint8_t winddir, uint8_t winddirrange) {
-      Message::init(0x15, msgcnt, 0x70, BCAST, (temp >> 8) & 0x7f, temp & 0xff);
+    void init(uint8_t msgcnt, int16_t temp, uint16_t airPressure, uint8_t humidity, uint16_t brightness, uint16_t raincounter, uint16_t windspeed, uint8_t winddir, uint8_t winddirrange, uint16_t boespeed, uint8_t uvindex, uint16_t lightningcounter, uint8_t lightningdistance) {
+      Message::init(0x1a, msgcnt, 0x70, BCAST, (temp >> 8) & 0x7f, temp & 0xff);
       pload[0] = (airPressure >> 8) & 0xff;
       pload[1] = airPressure & 0xff;
       pload[2] = humidity;
@@ -69,6 +88,11 @@ class WeatherEventMsg : public Message {
       pload[7] = (windspeed >> 8) & 0xff | (winddirrange << 6);
       pload[8] = windspeed & 0xff;
       pload[9] = winddir;
+      pload[10] = (boespeed >> 8) & 0xff;
+      pload[11] = boespeed & 0xff;
+      pload[12] = (uvindex & 0xff) | (lightningdistance << 4);
+      pload[13] = (lightningcounter >> 8) & 0xff;
+      pload[14] = lightningcounter & 0xff;
     }
 };
 
@@ -124,40 +148,126 @@ class SensorList1 : public RegList1<UReg1> {
 };
 
 class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_PER_CHANNEL, SensorList0>, public Alarm {
-
     WeatherEventMsg msg;
-
     int16_t       temperature;
     uint16_t      airPressure;
     uint8_t       humidity;
     uint16_t      brightness;
     uint16_t      raincounter;
     uint16_t      windspeed;
+    uint16_t      boespeed;
+    uint8_t       uvindex;
+    uint8_t       windspeed_measure_count;
+    uint16_t      lightningcounter;
+    uint8_t       lightningdistance;
+
     uint8_t       winddir;
     uint8_t       idxoldwdir;
     uint8_t       winddirrange;
     bool          firstRun;
 
-    Sens_Bme280  bme280;
-    Bh1750<>     bh1750;
+    uint8_t       anemometerRadius;
+    uint8_t       anemometerCalibrationFactor;
+
+    Sens_Bme280                 bme280;
+    Sens_Veml6070<VEML6070_1_T> veml6070;
+    Bh1750<>                    bh1750;
+
 
   public:
-    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), firstRun(true) {}
+    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), firstRun(true), windspeed(0), ws_measure(*this) {}
     virtual ~WeatherChannel () {}
+    class WindSpeedMeasureAlarm : public Alarm {
+        WeatherChannel& chan;
+        uint16_t      windspeed;
+      public:
+        WindSpeedMeasureAlarm (WeatherChannel& c) : Alarm (seconds2ticks(WINDSPEED_MEASUREINTERVAL_SECONDS)), chan(c) {}
+        virtual ~WindSpeedMeasureAlarm () {}
+
+        void trigger (__attribute__ ((unused)) AlarmClock& clock)  {
+          chan.measure_windspeed();
+          tick = (seconds2ticks(WINDSPEED_MEASUREINTERVAL_SECONDS));
+          clock.add(*this);
+        }
+    } ws_measure;
 
     virtual void trigger (__attribute__ ((unused)) AlarmClock& clock) {
-      measure_windspeed();
       measure_winddirection();
+      measure_uv();
       measure_thpb();
       measure_rain();
+      measure_lightning();
 
-      msg.init(device().nextcount(), temperature, airPressure, humidity, brightness, raincounter, windspeed, winddir, winddirrange);
+      if (!firstRun)
+        windspeed = windspeed / windspeed_measure_count;
+
+      DPRINT(F("BOESPEED boespeed        : ")); DDECLN(boespeed);
+      DPRINT(F("WINDSPEED windspeed      : ")); DDECLN(windspeed);
+
+      msg.init(device().nextcount(), temperature, airPressure, humidity, brightness, raincounter, windspeed, winddir, winddirrange, boespeed, uvindex, lightningcounter, lightningdistance);
+
       device().sendPeerEvent(msg, *this);
 
       uint16_t updCycle = this->device().getList0().updIntervall();
       tick = seconds2ticks(updCycle * SYSCLOCK_FACTOR);
       clock.add(*this);
       firstRun = false;
+      windspeed = 0;
+      boespeed = 0;
+      windspeed_measure_count = 0;
+    }
+
+    void measure_windspeed() {
+#ifdef NSENSORS
+      _windcounter = random(20);
+#endif
+      //V = 2 * R * Pi * N
+      //AnemometerRadius() ist in Dezimeter angegeben! (6.5 in der WebUI -> AnemometerRadius() = 65)
+      int   kmph =  3.141593 * 2 * (anemometerRadius / 100.0) * (_windcounter / (WINDSPEED_MEASUREINTERVAL_SECONDS * SYSCLOCK_FACTOR)) * 3.6 * (anemometerCalibrationFactor / 10.0);
+      if (kmph > boespeed) {
+        boespeed = kmph;
+      }
+      windspeed += kmph;
+      _windcounter = 0;
+      windspeed_measure_count++;
+    }
+
+    void measure_winddirection() {
+      //Windrichtung Grad/3: 60° = 20; 0° = Norden
+      winddir = 0;
+      uint8_t idxwdir = 0;
+#ifdef NSENSORS
+      idxwdir = random(15);
+      winddir = idxwdir * 7.5;
+#else
+      uint16_t aVal = 0;
+      for (uint8_t i = 0; i <= 0xf; i++) {
+        aVal += analogRead(WINDDIRECTION_PIN);
+      }
+      aVal = aVal >> 4;
+
+      for (uint8_t i = 0; i < sizeof(WINDDIRS) / sizeof(uint16_t); i++) {
+        if (aVal < WINDDIRS[i] + WINDDIR_TOLERANCE && aVal > WINDDIRS[i] - WINDDIR_TOLERANCE) {
+          idxwdir = i;
+          winddir = i * 7.5;
+          break;
+        }
+      }
+      DPRINT(F("WINDDIR aVal           : ")); DDEC(aVal); DPRINT(F(" i = ")); DDECLN(idxwdir);
+#endif
+
+      //Schwankungsbreite
+      winddirrange = 3; // 0  - 3 (0, 22,5, 45, 67,5°)
+      int idxdiff = abs(idxwdir - idxoldwdir);
+
+      if (idxdiff <= 3) winddirrange = idxdiff;
+      if (idxwdir <= 2 && idxoldwdir >= 13) winddirrange = (sizeof(WINDDIRS) / sizeof(uint16_t)) - idxdiff;
+      if (winddirrange > 3) winddirrange = 3;
+
+      idxoldwdir = idxwdir;
+
+      DPRINT(F("WINDDIR winddir/3      : ")); DDECLN(winddir);
+      DPRINT(F("WINDDIR winddirrange   : ")); DDECLN(winddirrange);
     }
 
     void measure_rain() {
@@ -172,54 +282,36 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       }
     }
 
-    void measure_windspeed() {
-      windspeed = 0;
-      float Umdrehungen = (_windcounter * 1.0) / (device().getList0().updIntervall() * SYSCLOCK_FACTOR);
-      //V = 2 * R * Pi * N
-      //AnemometerRadius() ist in Dezimeter angegeben! (6.5 in der WebUI -> AnemometerRadius() = 65)
-      float kmph =  3.141593 * 2 * (float)(this->getList1().AnemometerRadius() / 100.0) * Umdrehungen * 3.6 * (float)(this->getList1().AnemometerCalibrationFactor() / 10.0);
-      windspeed = kmph;
-      DPRINT(F("WINDSPEED _windcounter : ")); DDECLN(_windcounter);
-      DPRINT(F("WINDSPEED windspeed    : ")); DDECLN(windspeed);
-      _windcounter = 0;
+    void measure_lightning() {
+#ifdef NSENSORS
+      lightningcounter = random(65534);
+      lightningdistance = random(15);
+#endif
     }
 
-    void measure_winddirection() {
-      //Windrichtung Grad/3: 60° = 20; 0° = Norden
-      winddir = 0;
-      uint8_t idxwdir = 0;
-      uint16_t aVal = 0;
-      for (uint8_t i = 0; i <= 0xf; i++) {
-        aVal += analogRead(WINDDIRECTION_PIN);
-      }
-      aVal = aVal >> 4;
+    void measure_uv() {
+#ifdef NSENSORS
+      uvindex = random(11);
+#else
+      veml6070.measure();
+      uvindex = veml6070.UVIndex();
 
-      for (uint8_t i = 0; i < sizeof(WINDDIRS) / sizeof(uint16_t); i++) {
-        if (aVal < WINDDIRS[i] + WINDDIR_TOLERANCE && aVal > WINDDIRS[i] - WINDDIR_TOLERANCE) {
-          winddir = i * 7.5;
-          idxwdir = i;
-          break;
-        }
-      }
-
-      //Schwankungsbreite
-      winddirrange = 3; // 0  - 3 (0, 22,5, 45, 67,5°)
-      int idxdiff = abs(idxwdir - idxoldwdir);
-
-      if (idxdiff <= 3) winddirrange = idxdiff;
-      if (idxwdir <= 2 && idxoldwdir >= 13) winddirrange = (sizeof(WINDDIRS) / sizeof(uint16_t)) - idxdiff;
-      if (winddirrange > 3) winddirrange = 3;
-
-      idxoldwdir = idxwdir;
-
-      DPRINT(F("WINDDIR aVal           : ")); DDEC(aVal); DPRINT(F(" i = ")); DDECLN(idxwdir);
-      DPRINT(F("WINDDIR winddir/3      : ")); DDECLN(winddir);
-      DPRINT(F("WINDDIR winddirrange   : ")); DDECLN(winddirrange);
+#endif
+      DPRINT(F("UV UVIndex             : ")); DDECLN(uvindex);
     }
 
-    // here we do the measurement
     void measure_thpb() {
       uint16_t height = this->device().getList0().height();
+#ifdef NSENSORS
+      airPressure = 9000 + random(2000);   // 1024 hPa +x
+      humidity    = 66 + random(7);     // 66% +x
+      temperature = 150 + random(50);   // 15C +x
+      brightness = 67000 + random(1000);   // 67000 Lux +x
+      DPRINT(F("        airPressure    : ")); DDECLN(airPressure);
+      DPRINT(F("        humidity       : ")); DDECLN(humidity);
+      DPRINT(F("        temperature    : ")); DDECLN(temperature);
+      DPRINT(F("        brightness     : ")); DDECLN(brightness);
+#else
       bme280.measure(height);
       temperature = bme280.temperature();
       airPressure = bme280.pressureNN();
@@ -228,22 +320,28 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       bh1750.measure();
       brightness = bh1750.brightness() * BRIGHTNESS_FACTOR;
       DPRINT(F("BRIGHTNESS             : ")  ); DDECLN(brightness);
+#endif
     }
 
     void setup(Device<Hal, SensorList0>* dev, uint8_t number, uint16_t addr) {
       Channel::setup(dev, number, addr);
-      tick = seconds2ticks(3);	        // first message in 3 sec.
+      tick = seconds2ticks(3);	// first message in 3 sec.
+#ifndef NSENSORS
       bh1750.init();
       bme280.init();
-
+      veml6070.init();
+#endif
       sysclock.add(*this);
+      sysclock.add(ws_measure);
     }
 
     void configChanged() {
+      anemometerRadius = this->getList1().AnemometerRadius();
+      anemometerCalibrationFactor = this->getList1().AnemometerCalibrationFactor();
       DPRINTLN("* Config changed       : List1");
       DPRINTLN(F("* ANEMOMETER           : "));
-      DPRINT(F("*  - RADIUS            : ")); DDECLN(this->getList1().AnemometerRadius());
-      DPRINT(F("*  - CALIBRATIONFACTOR : ")); DDECLN(this->getList1().AnemometerCalibrationFactor());
+      DPRINT(F("*  - RADIUS            : ")); DDECLN(anemometerRadius);
+      DPRINT(F("*  - CALIBRATIONFACTOR : ")); DDECLN(anemometerCalibrationFactor);
     }
 
     uint8_t status () const {
@@ -280,8 +378,20 @@ void setup () {
   pinMode(RAINCOUNTER_PIN, INPUT_PULLUP);
   pinMode(WINDCOUNTER_PIN, INPUT_PULLUP);
   pinMode(WINDDIRECTION_PIN, INPUT_PULLUP);
+
   if ( digitalPinToInterrupt(RAINCOUNTER_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(RAINCOUNTER_PIN, raincounterISR, RISING); else attachInterrupt(digitalPinToInterrupt(RAINCOUNTER_PIN), raincounterISR, RISING);
   if ( digitalPinToInterrupt(WINDCOUNTER_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(WINDCOUNTER_PIN, windcounterISR, RISING); else attachInterrupt(digitalPinToInterrupt(WINDCOUNTER_PIN), windcounterISR, RISING);
+
+  /*as3935.initialise(14, 17, 0x03, 3, true, NULL);
+    as3935.start();
+    d.start(1000, AsyncDelay::MILLIS);
+    while (!d.isExpired())
+    as3935.process();
+
+    readRegs(0, 0x09);
+    as3935.setNoiseFloor(0);
+    attachInterrupt(2, int2Handler, RISING);
+    d.start(1000, AsyncDelay::MILLIS);*/
 }
 
 void loop() {
