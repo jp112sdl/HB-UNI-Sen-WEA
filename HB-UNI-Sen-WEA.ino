@@ -16,6 +16,8 @@
 #include <Register.h>
 #include <MultiChannelDevice.h>
 #include <sensors/Bh1750.h>
+#include "Sensors/Sens_Bme280.h"
+#include "Sensors/Sens_VEML6070.h"
 
 #define LED_PIN             4
 #define WINDCOUNTER_PIN     5
@@ -34,8 +36,6 @@ const uint16_t WINDDIRS[] = { 523  , 570 ,  474 , 746 , 624  , 806 , 370, 407, 9
 #define WINDSPEED_MEASUREINTERVAL_SECONDS 5
 
 #define PEERS_PER_CHANNEL   6
-
-#include "Sensors/Sens_Bme280.h"
 
 using namespace as;
 
@@ -58,8 +58,8 @@ Hal hal;
 
 class WeatherEventMsg : public Message {
   public:
-    void init(uint8_t msgcnt, int16_t temp, uint16_t airPressure, uint8_t humidity, uint16_t brightness, uint16_t raincounter, uint16_t windspeed, uint8_t winddir, uint8_t winddirrange, uint16_t boespeed) {
-      Message::init(0x17, msgcnt, 0x70, BCAST, (temp >> 8) & 0x7f, temp & 0xff);
+    void init(uint8_t msgcnt, int16_t temp, uint16_t airPressure, uint8_t humidity, uint16_t brightness, uint16_t raincounter, uint16_t windspeed, uint8_t winddir, uint8_t winddirrange, uint16_t boespeed, uint8_t uvindex) {
+      Message::init(0x18, msgcnt, 0x70, BCAST, (temp >> 8) & 0x7f, temp & 0xff);
       pload[0] = (airPressure >> 8) & 0xff;
       pload[1] = airPressure & 0xff;
       pload[2] = humidity;
@@ -72,6 +72,7 @@ class WeatherEventMsg : public Message {
       pload[9] = winddir;
       pload[10] = (boespeed >> 8) & 0xff;
       pload[11] = boespeed & 0xff;
+      pload[12] = uvindex;
     }
 };
 
@@ -135,6 +136,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     uint16_t      raincounter;
     uint16_t      windspeed;
     uint16_t      boespeed;
+    uint8_t       uvindex;
     uint8_t       windspeed_measure_count;
 
     uint8_t       winddir;
@@ -145,8 +147,9 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     uint8_t       anemometerRadius;
     uint8_t       anemometerCalibrationFactor;
 
-    Sens_Bme280  bme280;
-    Bh1750<>     bh1750;
+    Sens_Bme280                 bme280;
+    Sens_Veml6070<VEML6070_1_T> veml6070;
+    Bh1750<>                    bh1750;
 
 
   public:
@@ -170,6 +173,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 
     virtual void trigger (__attribute__ ((unused)) AlarmClock& clock) {
       measure_winddirection();
+      measure_uv();
       measure_thpb();
       measure_rain();
 
@@ -177,10 +181,9 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
         windspeed = windspeed / windspeed_measure_count;
 
       DPRINT(F("BOESPEED boespeed        : ")); DDECLN(boespeed);
-      DPRINT(F("WINDSPEED windspeed(mcnt): ")); DDECLN(windspeed_measure_count);
       DPRINT(F("WINDSPEED windspeed      : ")); DDECLN(windspeed);
 
-      msg.init(device().nextcount(), temperature, airPressure, humidity, brightness, raincounter, windspeed, winddir, winddirrange, boespeed);
+      msg.init(device().nextcount(), temperature, airPressure, humidity, brightness, raincounter, windspeed, winddir, winddirrange, boespeed, uvindex);
 
       device().sendPeerEvent(msg, *this);
 
@@ -199,7 +202,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 #endif
       //V = 2 * R * Pi * N
       //AnemometerRadius() ist in Dezimeter angegeben! (6.5 in der WebUI -> AnemometerRadius() = 65)
-      int   kmph =  3.141593 * 2 * (anemometerRadius / 100.0) * ((_windcounter / (WINDSPEED_MEASUREINTERVAL_SECONDS * SYSCLOCK_FACTOR)) * 3.6 * (anemometerCalibrationFactor / 10.0);
+      int   kmph =  3.141593 * 2 * (anemometerRadius / 100.0) * (_windcounter / (WINDSPEED_MEASUREINTERVAL_SECONDS * SYSCLOCK_FACTOR)) * 3.6 * (anemometerCalibrationFactor / 10.0);
       if (kmph > boespeed) {
         boespeed = kmph;
       }
@@ -257,15 +260,27 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
         DDECLN(raincounter);
       }
     }
-    // here we do the measurement
+
+    void measure_uv() {
+#ifdef NSENSORS
+      uvindex = random(11);
+#else
+      uvindex = veml6070.UVIndex();
+#endif
+      DPRINT(F("UV UVIndex             : ")); DDECLN(uvindex);
+    }
+
     void measure_thpb() {
       uint16_t height = this->device().getList0().height();
 #ifdef NSENSORS
-      airPressure = 1024 + random(9);   // 1024 hPa +x
+      airPressure = 9000 + random(2000);   // 1024 hPa +x
       humidity    = 66 + random(7);     // 66% +x
       temperature = 150 + random(50);   // 15C +x
       brightness = 67000 + random(1000);   // 67000 Lux +x
-
+      DPRINT(F("        airPressure    : ")); DDECLN(airPressure);
+      DPRINT(F("        humidity       : ")); DDECLN(humidity);
+      DPRINT(F("        temperature    : ")); DDECLN(temperature);
+      DPRINT(F("        brightness     : ")); DDECLN(brightness);
 #else
       bme280.measure(height);
       temperature = bme280.temperature();
@@ -284,6 +299,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 #ifndef NSENSORS
       bh1750.init();
       bme280.init();
+      veml6070.init();
 #endif
       sysclock.add(*this);
       sysclock.add(ws_measure);
@@ -310,7 +326,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 class SensChannelDevice : public MultiChannelDevice<Hal, WeatherChannel, 1, SensorList0> {
   public:
     typedef MultiChannelDevice<Hal, WeatherChannel, 1, SensorList0> TSDevice;
-    SensChannelDevice(const DeviceInfo& info, uint16_t addr) : TSDevice(info, addr) {}//, ws_measure(*this) {}
+    SensChannelDevice(const DeviceInfo& info, uint16_t addr) : TSDevice(info, addr) {} {}
     virtual ~SensChannelDevice () {}
 
     virtual void configChanged () {
@@ -332,6 +348,7 @@ void setup () {
   pinMode(RAINCOUNTER_PIN, INPUT_PULLUP);
   pinMode(WINDCOUNTER_PIN, INPUT_PULLUP);
   pinMode(WINDDIRECTION_PIN, INPUT_PULLUP);
+
   if ( digitalPinToInterrupt(RAINCOUNTER_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(RAINCOUNTER_PIN, raincounterISR, RISING); else attachInterrupt(digitalPinToInterrupt(RAINCOUNTER_PIN), raincounterISR, RISING);
   if ( digitalPinToInterrupt(WINDCOUNTER_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(WINDCOUNTER_PIN, windcounterISR, RISING); else attachInterrupt(digitalPinToInterrupt(WINDCOUNTER_PIN), windcounterISR, RISING);
 }
