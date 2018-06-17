@@ -6,7 +6,7 @@
 // 2018-05-21 jp112sdl (Creative Commons)
 //- -----------------------------------------------------------------------------------------------------------------------
 // #define NDEBUG
-// #define NSENSORS
+#define NSENSORS
 // #define USE_OTA_BOOTLOADER
 
 #define  EI_NOTEXTERNAL
@@ -18,24 +18,6 @@
 #include <sensors/Bh1750.h>
 #include "Sensors/Sens_Bme280.h"
 #include "Sensors/Sens_VEML6070.h"
-/*#include <AsyncDelay.h>
-  #include <SoftWire.h>
-  #include <AS3935.h>
-
-  AS3935 as3935;
-  AsyncDelay d;
-
-  void int2Handler(void) {
-  as3935.interruptHandler();
-  }
-
-  void readRegs(uint8_t start, uint8_t end)
-  {
-  for (uint8_t reg = start; reg < end; ++reg) {
-    delay(50);
-    uint8_t val;
-    as3935.readRegister(reg, val);
-  }*/
 
 #define LED_PIN             4
 #define WINDCOUNTER_PIN     5
@@ -53,12 +35,12 @@ const uint16_t WINDDIRS[] = { 523  , 570 ,  474 , 746 , 624  , 806 , 370, 407, 9
 #define WINDDIR_TOLERANCE   5
 #define WINDSPEED_MEASUREINTERVAL_SECONDS 5
 
-#define PEERS_PER_CHANNEL   6
+#define PEERS_PER_CHANNEL   2
 
 using namespace as;
 
-volatile uint32_t _raincounter = 0;
-volatile uint16_t _windcounter = 0;
+volatile uint32_t _rain_isr_counter = 0;
+volatile uint16_t _wind_isr_counter = 0;
 
 const struct DeviceInfo PROGMEM devinfo = {
   {0xF1, 0xD0, 0x02},        // Device ID
@@ -157,7 +139,6 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     uint16_t      windspeed;
     uint16_t      boespeed;
     uint8_t       uvindex;
-    uint8_t       windspeed_measure_count;
     uint16_t      lightningcounter;
     uint8_t       lightningdistance;
 
@@ -165,6 +146,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     uint8_t       idxoldwdir;
     uint8_t       winddirrange;
     bool          firstRun;
+    uint8_t       short_interval_measure_count;
 
     uint8_t       anemometerRadius;
     uint8_t       anemometerCalibrationFactor;
@@ -175,7 +157,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 
 
   public:
-    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), firstRun(true), windspeed(0), ws_measure(*this) {}
+    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), firstRun(true), windspeed(0), uvindex(0), short_interval_measure_count(0), ws_measure(*this) {}
     virtual ~WeatherChannel () {}
     class WindSpeedMeasureAlarm : public Alarm {
         WeatherChannel& chan;
@@ -186,23 +168,27 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 
         void trigger (__attribute__ ((unused)) AlarmClock& clock)  {
           chan.measure_windspeed();
+          chan.measure_uvindex();
           tick = (seconds2ticks(WINDSPEED_MEASUREINTERVAL_SECONDS));
           clock.add(*this);
+          chan.short_interval_measure_count++;
         }
     } ws_measure;
 
     virtual void trigger (__attribute__ ((unused)) AlarmClock& clock) {
       measure_winddirection();
-      measure_uv();
       measure_thpb();
       measure_rain();
       measure_lightning();
 
-      if (!firstRun)
-        windspeed = windspeed / windspeed_measure_count;
+      if (!firstRun) {
+        windspeed = windspeed / short_interval_measure_count;
+        uvindex = uvindex / short_interval_measure_count;
+      }
 
-      DPRINT(F("BOESPEED boespeed        : ")); DDECLN(boespeed);
-      DPRINT(F("WINDSPEED windspeed      : ")); DDECLN(windspeed);
+      DPRINT(F("BOESPEED boespeed      : ")); DDECLN(boespeed);
+      DPRINT(F("WINDSPEED windspeed    : ")); DDECLN(windspeed);
+      DPRINT(F("UV Index               : ")); DDECLN(uvindex);
 
       msg.init(device().nextcount(), temperature, airPressure, humidity, brightness, raincounter, windspeed, winddir, winddirrange, boespeed, uvindex, lightningcounter, lightningdistance);
 
@@ -214,22 +200,30 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       firstRun = false;
       windspeed = 0;
       boespeed = 0;
-      windspeed_measure_count = 0;
+      uvindex = 0;
+      short_interval_measure_count = 0;
     }
 
     void measure_windspeed() {
 #ifdef NSENSORS
-      _windcounter = random(20);
+      _wind_isr_counter = random(20);
 #endif
       //V = 2 * R * Pi * N
-      //AnemometerRadius() ist in Dezimeter angegeben! (6.5 in der WebUI -> AnemometerRadius() = 65)
-      int   kmph =  3.141593 * 2 * (anemometerRadius / 100.0) * (_windcounter / (WINDSPEED_MEASUREINTERVAL_SECONDS * SYSCLOCK_FACTOR)) * 3.6 * (anemometerCalibrationFactor / 10.0);
+      int   kmph =  3.141593 * 2 * (anemometerRadius / 100.0) * (_wind_isr_counter / (WINDSPEED_MEASUREINTERVAL_SECONDS * SYSCLOCK_FACTOR)) * 3.6 * (anemometerCalibrationFactor / 10.0);
       if (kmph > boespeed) {
         boespeed = kmph;
       }
       windspeed += kmph;
-      _windcounter = 0;
-      windspeed_measure_count++;
+      _wind_isr_counter = 0;
+    }
+
+    void measure_uvindex() {
+#ifdef NSENSORS
+      uvindex += random(11);
+#else
+      veml6070.measure();
+      uvindex += veml6070.UVIndex();
+#endif
     }
 
     void measure_winddirection() {
@@ -274,10 +268,10 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       DPRINT(F("RAINCOUNTER            : "));
       if (firstRun) {
         //manchmal wird bei Initialisierung die ISR ausgelöst, das setzen wir hier zurück
-        _raincounter = 0;
+        _rain_isr_counter = 0;
         DPRINTLN(F("first run - nothing"));
       } else {
-        raincounter = _raincounter;
+        raincounter = _rain_isr_counter;
         DDECLN(raincounter);
       }
     }
@@ -287,17 +281,6 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       lightningcounter = random(65534);
       lightningdistance = random(15);
 #endif
-    }
-
-    void measure_uv() {
-#ifdef NSENSORS
-      uvindex = random(11);
-#else
-      veml6070.measure();
-      uvindex = veml6070.UVIndex();
-
-#endif
-      DPRINT(F("UV UVIndex             : ")); DDECLN(uvindex);
     }
 
     void measure_thpb() {
@@ -381,17 +364,6 @@ void setup () {
 
   if ( digitalPinToInterrupt(RAINCOUNTER_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(RAINCOUNTER_PIN, raincounterISR, RISING); else attachInterrupt(digitalPinToInterrupt(RAINCOUNTER_PIN), raincounterISR, RISING);
   if ( digitalPinToInterrupt(WINDCOUNTER_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(WINDCOUNTER_PIN, windcounterISR, RISING); else attachInterrupt(digitalPinToInterrupt(WINDCOUNTER_PIN), windcounterISR, RISING);
-
-  /*as3935.initialise(14, 17, 0x03, 3, true, NULL);
-    as3935.start();
-    d.start(1000, AsyncDelay::MILLIS);
-    while (!d.isExpired())
-    as3935.process();
-
-    readRegs(0, 0x09);
-    as3935.setNoiseFloor(0);
-    attachInterrupt(2, int2Handler, RISING);
-    d.start(1000, AsyncDelay::MILLIS);*/
 }
 
 void loop() {
@@ -403,10 +375,10 @@ void loop() {
 }
 
 void raincounterISR() {
-  _raincounter++;
+  _rain_isr_counter++;
 }
 
 void windcounterISR() {
-  _windcounter++;
+  _wind_isr_counter++;
 }
 
