@@ -11,12 +11,13 @@
   - [BME280](https://github.com/finitespace/BME280) Temperatur / Feuchte / Luftdruck
 
 #### Hardware (Elektronik)
-- benötigte Bauteile:
+- benötigte Bauteile _(ohne Gewähr, dass es sich um die preiswertesten Angebote handelt!)_:
   - [CC1101 (868MHz)](https://de.aliexpress.com/item/CC1101-Wireless-Module-Long-Distance-Transmission-Antenna-868MHZ-M115-For-FSK-GFSK-ASK-OOK-MSK-64/32635393463.html) 
   - [Arduino Pro Mini 3.3V/8MHz](https://de.aliexpress.com/item/Free-Shipping-1pcs-pro-mini-atmega328-Pro-Mini-328-Mini-ATMEGA328-3-3V-8MHz-for-Arduino/32342672626.html)
   - [VEML6070](https://www.ebay.de/itm/183207531222)
   - [BME280](https://www.ebay.de/itm/253107395109)
   - [Reed-Kontakte](https://www.ebay.de/itm/263000077321)
+  - [BH1750](https://www.ebay.de/itm/162351871499)
 
 
 #### Gehäuse-/Konstrukt-Teile
