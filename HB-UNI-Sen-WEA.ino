@@ -5,8 +5,8 @@
 // 2018-05-11 Tom Major (Creative Commons)
 // 2018-05-21 jp112sdl (Creative Commons)
 //- -----------------------------------------------------------------------------------------------------------------------
-// #define NDEBUG
-#define NSENSORS
+#define NDEBUG
+// #define NSENSORS
 // #define USE_OTA_BOOTLOADER
 
 #define  EI_NOTEXTERNAL
@@ -18,6 +18,22 @@
 #include <sensors/Bh1750.h>
 #include "Sensors/Sens_Bme280.h"
 #include "Sensors/Sens_VEML6070.h"
+
+///////////////////////////////
+// Lightning Detector AS3935
+#include <PWFusion_AS3935_I2C.h>
+#define AS3935_IRQ_PIN       3        // digital pins 2 and 3 are available for interrupt capability
+#define AS3935_ADD           0x03     // x03 - standard PWF SEN-39001-R01 config
+#define AS3935_CAPACITANCE   72       // <-- SET THIS VALUE TO THE NUMBER LISTED ON YOUR BOARD 
+
+// defines for general chip settings
+#define AS3935_INDOORS       0
+#define AS3935_OUTDOORS      1
+#define AS3935_DIST_DIS      0
+#define AS3935_DIST_EN       1
+
+PWF_AS3935_I2C  LightningDetector((uint8_t)AS3935_IRQ_PIN, (uint8_t)AS3935_ADD);
+///////////////////////////////
 
 #define LED_PIN             4
 #define WINDCOUNTER_PIN     5
@@ -41,10 +57,11 @@ using namespace as;
 
 volatile uint32_t _rain_isr_counter = 0;
 volatile uint16_t _wind_isr_counter = 0;
+volatile uint8_t  _lightning_isr_counter = 0;
 
 const struct DeviceInfo PROGMEM devinfo = {
-  {0xF1, 0xD0, 0x02},        // Device ID
-  "JPWEA00002",           	 // Device Serial
+  {0xF1, 0xD0, 0x01},        // Device ID
+  "JPWEA00001",           	 // Device Serial
   {0xF1, 0xD0},            	 // Device Model
   0x10,                   	 // Firmware Version
   as::DeviceType::THSensor,  // Device Type
@@ -58,7 +75,7 @@ Hal hal;
 
 class WeatherEventMsg : public Message {
   public:
-    void init(uint8_t msgcnt, int16_t temp, uint16_t airPressure, uint8_t humidity, uint16_t brightness, uint16_t raincounter, uint16_t windspeed, uint8_t winddir, uint8_t winddirrange, uint16_t boespeed, uint8_t uvindex, uint16_t lightningcounter, uint8_t lightningdistance) {
+    void init(uint8_t msgcnt, int16_t temp, uint16_t airPressure, uint8_t humidity, uint16_t brightness, uint16_t raincounter, uint16_t windspeed, uint8_t winddir, uint8_t winddirrange, uint16_t gustspeed, uint8_t uvindex, uint16_t lightningcounter, uint8_t lightningdistance) {
       Message::init(0x1a, msgcnt, 0x70, BCAST, (temp >> 8) & 0x7f, temp & 0xff);
       pload[0] = (airPressure >> 8) & 0xff;
       pload[1] = airPressure & 0xff;
@@ -70,8 +87,8 @@ class WeatherEventMsg : public Message {
       pload[7] = (windspeed >> 8) & 0xff | (winddirrange << 6);
       pload[8] = windspeed & 0xff;
       pload[9] = winddir;
-      pload[10] = (boespeed >> 8) & 0xff;
-      pload[11] = boespeed & 0xff;
+      pload[10] = (gustspeed >> 8) & 0xff;
+      pload[11] = gustspeed & 0xff;
       pload[12] = (uvindex & 0xff) | (lightningdistance << 4);
       pload[13] = (lightningcounter >> 8) & 0xff;
       pload[14] = lightningcounter & 0xff;
@@ -130,6 +147,7 @@ class SensorList1 : public RegList1<UReg1> {
 };
 
 class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_PER_CHANNEL, SensorList0>, public Alarm {
+
     WeatherEventMsg msg;
     int16_t       temperature;
     uint16_t      airPressure;
@@ -137,11 +155,11 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     uint16_t      brightness;
     uint16_t      raincounter;
     uint16_t      windspeed;
-    uint16_t      boespeed;
+    uint16_t      gustspeed;
     uint8_t       uvindex;
     uint16_t      lightningcounter;
     uint8_t       lightningdistance;
-
+    
     uint8_t       winddir;
     uint8_t       idxoldwdir;
     uint8_t       winddirrange;
@@ -155,13 +173,12 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     Sens_Veml6070<VEML6070_1_T> veml6070;
     Bh1750<>                    bh1750;
 
-
   public:
-    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), firstRun(true), windspeed(0), uvindex(0), short_interval_measure_count(0), ws_measure(*this) {}
+    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), firstRun(true), windspeed(0), uvindex(0), short_interval_measure_count(0), background_measure(*this), lightning_check(*this)  {}
     virtual ~WeatherChannel () {}
+
     class WindSpeedMeasureAlarm : public Alarm {
         WeatherChannel& chan;
-        uint16_t      windspeed;
       public:
         WindSpeedMeasureAlarm (WeatherChannel& c) : Alarm (seconds2ticks(WINDSPEED_MEASUREINTERVAL_SECONDS)), chan(c) {}
         virtual ~WindSpeedMeasureAlarm () {}
@@ -173,24 +190,36 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
           clock.add(*this);
           chan.short_interval_measure_count++;
         }
-    } ws_measure;
+    } background_measure;
+
+    class LightningReceiveAlarm : public Alarm {
+        WeatherChannel& chan;
+      public:
+        LightningReceiveAlarm (WeatherChannel& c) : Alarm (seconds2ticks(1)), chan(c) {}
+        virtual ~LightningReceiveAlarm () {}
+
+        void trigger (__attribute__ ((unused)) AlarmClock& clock)  {
+          chan.measure_lightning();
+          tick = (seconds2ticks(1));
+          clock.add(*this);
+        }
+    } lightning_check;
 
     virtual void trigger (__attribute__ ((unused)) AlarmClock& clock) {
       measure_winddirection();
       measure_thpb();
       measure_rain();
-      measure_lightning();
 
       if (!firstRun) {
         windspeed = windspeed / short_interval_measure_count;
         uvindex = uvindex / short_interval_measure_count;
       }
 
-      DPRINT(F("BOESPEED boespeed      : ")); DDECLN(boespeed);
+      DPRINT(F("GUSTSPEED gustspeed    : ")); DDECLN(gustspeed);
       DPRINT(F("WINDSPEED windspeed    : ")); DDECLN(windspeed);
       DPRINT(F("UV Index               : ")); DDECLN(uvindex);
 
-      msg.init(device().nextcount(), temperature, airPressure, humidity, brightness, raincounter, windspeed, winddir, winddirrange, boespeed, uvindex, lightningcounter, lightningdistance);
+      msg.init(device().nextcount(), temperature, airPressure, humidity, brightness, raincounter, windspeed, winddir, winddirrange, gustspeed, uvindex, lightningcounter, lightningdistance);
 
       device().sendPeerEvent(msg, *this);
 
@@ -199,7 +228,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       clock.add(*this);
       firstRun = false;
       windspeed = 0;
-      boespeed = 0;
+      gustspeed = 0;
       uvindex = 0;
       short_interval_measure_count = 0;
     }
@@ -210,8 +239,8 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 #endif
       //V = 2 * R * Pi * N
       int   kmph =  3.141593 * 2 * (anemometerRadius / 100.0) * (_wind_isr_counter / (WINDSPEED_MEASUREINTERVAL_SECONDS * SYSCLOCK_FACTOR)) * 3.6 * (anemometerCalibrationFactor / 10.0);
-      if (kmph > boespeed) {
-        boespeed = kmph;
+      if (kmph > gustspeed) {
+        gustspeed = kmph;
       }
       windspeed += kmph;
       _wind_isr_counter = 0;
@@ -280,6 +309,32 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 #ifdef NSENSORS
       lightningcounter = random(65534);
       lightningdistance = random(15);
+#else
+      if (_lightning_isr_counter > 0) {
+        // reset interrupt flag
+
+        // now get interrupt source
+        uint8_t int_src = LightningDetector.AS3935_GetInterruptSrc();
+        if (0 == int_src) {
+          Serial.println("interrupt source result not expected");
+        }
+        else if (1 == int_src) {
+          uint8_t lightning_dist_km = LightningDetector.AS3935_GetLightningDistKm();
+          Serial.print("Lightning detected in ");
+          Serial.print(lightning_dist_km);
+          Serial.println(" kilometers");
+          lightningcounter++;
+          lightningdistance = lightning_dist_km / 3;
+        }
+        else if (2 == int_src) {
+          Serial.println("Disturber detected");
+        }
+        else if (3 == int_src) {
+          Serial.println("Noise high");
+        }
+        //LightningDetector.AS3935_PrintAllRegs(); // for debug...
+        _lightning_isr_counter = 0;
+      }
 #endif
     }
 
@@ -313,9 +368,19 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       bh1750.init();
       bme280.init();
       veml6070.init();
+
+      I2c.begin();
+      I2c.pullup(true);
+      I2c.setSpeed(1);
+      delay(2);
+      LightningDetector.AS3935_DefInit();
+      LightningDetector.AS3935_ManualCal(AS3935_CAPACITANCE, AS3935_OUTDOORS, AS3935_DIST_EN);
+      LightningDetector.AS3935_PrintAllRegs();
+      _lightning_isr_counter = 0;
 #endif
       sysclock.add(*this);
-      sysclock.add(ws_measure);
+      sysclock.add(background_measure);
+      sysclock.add(lightning_check);
     }
 
     void configChanged() {
@@ -355,6 +420,10 @@ ConfigButton<SensChannelDevice> cfgBtn(sdev);
 
 void setup () {
   DINIT(57600, ASKSIN_PLUS_PLUS_IDENTIFIER);
+#ifdef NDEBUG
+  Serial.begin(57600);
+#endif
+
   sdev.init(hal);
   buttonISR(cfgBtn, CONFIG_BUTTON_PIN);
   sdev.initDone();
@@ -364,6 +433,7 @@ void setup () {
 
   if ( digitalPinToInterrupt(RAINCOUNTER_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(RAINCOUNTER_PIN, raincounterISR, RISING); else attachInterrupt(digitalPinToInterrupt(RAINCOUNTER_PIN), raincounterISR, RISING);
   if ( digitalPinToInterrupt(WINDCOUNTER_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(WINDCOUNTER_PIN, windcounterISR, RISING); else attachInterrupt(digitalPinToInterrupt(WINDCOUNTER_PIN), windcounterISR, RISING);
+  if ( digitalPinToInterrupt(AS3935_IRQ_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(AS3935_IRQ_PIN, lightningISR, RISING); else attachInterrupt(digitalPinToInterrupt(AS3935_IRQ_PIN), lightningISR, RISING);
 }
 
 void loop() {
@@ -381,4 +451,9 @@ void raincounterISR() {
 void windcounterISR() {
   _wind_isr_counter++;
 }
+
+void lightningISR() {
+  _lightning_isr_counter = 1;
+}
+
 
