@@ -5,15 +5,17 @@
 // 2018-05-11 Tom Major (Creative Commons)
 // 2018-05-21 jp112sdl (Creative Commons)
 //- -----------------------------------------------------------------------------------------------------------------------
-#define NDEBUG
+// #define NDEBUG
 // #define NSENSORS
 // #define USE_OTA_BOOTLOADER
 
 #define  EI_NOTEXTERNAL
 #include <EnableInterrupt.h>
+#include <SPI.h>  // after including SPI Library - we can use LibSPI class
 #include <AskSinPP.h>
 #include <LowPower.h>
 #include <Register.h>
+
 #include <MultiChannelDevice.h>
 #include <sensors/Bh1750.h>
 #include "Sensors/Sens_Bme280.h"
@@ -21,8 +23,10 @@
 
 ///////////////////////////////
 // Lightning Detector AS3935
-#include <PWFusion_AS3935_I2C.h>
+#include "PWFusion_AS3935.h"
+
 #define AS3935_IRQ_PIN       3        // digital pins 2 and 3 are available for interrupt capability
+#define AS3935_CS_PIN        7
 #define AS3935_ADD           0x03     // x03 - standard PWF SEN-39001-R01 config
 #define AS3935_CAPACITANCE   72       // <-- SET THIS VALUE TO THE NUMBER LISTED ON YOUR BOARD 
 
@@ -32,7 +36,7 @@
 #define AS3935_DIST_DIS      0
 #define AS3935_DIST_EN       1
 
-PWF_AS3935_I2C  LightningDetector((uint8_t)AS3935_IRQ_PIN, (uint8_t)AS3935_ADD);
+PWF_AS3935 LightningDetector(AS3935_CS_PIN, AS3935_IRQ_PIN);
 ///////////////////////////////
 
 #define LED_PIN             4
@@ -60,8 +64,8 @@ volatile uint16_t _wind_isr_counter = 0;
 volatile uint8_t  _lightning_isr_counter = 0;
 
 const struct DeviceInfo PROGMEM devinfo = {
-  {0xF1, 0xD0, 0x01},        // Device ID
-  "JPWEA00001",           	 // Device Serial
+  {0xF1, 0xD0, 0x02},        // Device ID
+  "JPWEA00002",           	 // Device Serial
   {0xF1, 0xD0},            	 // Device Model
   0x10,                   	 // Firmware Version
   as::DeviceType::THSensor,  // Device Type
@@ -69,8 +73,10 @@ const struct DeviceInfo PROGMEM devinfo = {
 };
 
 // Configure the used hardware
-typedef AvrSPI<10, 11, 12, 13> RadioSPI;
-typedef AskSin<StatusLed<LED_PIN>, NoBattery, Radio<RadioSPI, 2> > Hal;
+//typedef AvrSPI<10, 11, 12, 13> RadioSPI;
+//typedef AskSin<StatusLed<LED_PIN>, NoBattery, Radio< AvrSPI<10, 11, 12, 13>, 2> > Hal;
+typedef AskSin<StatusLed<LED_PIN>, NoBattery, Radio<LibSPI<10>, 2>> Hal;
+
 Hal hal;
 
 class WeatherEventMsg : public Message {
@@ -159,7 +165,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     uint8_t       uvindex;
     uint16_t      lightningcounter;
     uint8_t       lightningdistance;
-    
+
     uint8_t       winddir;
     uint8_t       idxoldwdir;
     uint8_t       winddirrange;
@@ -311,26 +317,23 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       lightningdistance = random(15);
 #else
       if (_lightning_isr_counter > 0) {
-        // reset interrupt flag
-
-        // now get interrupt source
         uint8_t int_src = LightningDetector.AS3935_GetInterruptSrc();
         if (0 == int_src) {
-          Serial.println("interrupt source result not expected");
+          DPRINTLN(F("interrupt source result not expected"));
         }
         else if (1 == int_src) {
           uint8_t lightning_dist_km = LightningDetector.AS3935_GetLightningDistKm();
-          Serial.print("Lightning detected in ");
-          Serial.print(lightning_dist_km);
-          Serial.println(" kilometers");
+          DPRINT(F("Lightning detected in "));
+          DDEC(lightning_dist_km);
+          DPRINTLN(F(" kilometers"));
           lightningcounter++;
           lightningdistance = lightning_dist_km / 3;
         }
         else if (2 == int_src) {
-          Serial.println("Disturber detected");
+          DPRINTLN(F("Disturber detected"));
         }
         else if (3 == int_src) {
-          Serial.println("Noise high");
+          DPRINTLN(F("Noise high"));
         }
         //LightningDetector.AS3935_PrintAllRegs(); // for debug...
         _lightning_isr_counter = 0;
@@ -368,14 +371,9 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       bh1750.init();
       bme280.init();
       veml6070.init();
-
-      I2c.begin();
-      I2c.pullup(true);
-      I2c.setSpeed(1);
-      delay(2);
       LightningDetector.AS3935_DefInit();
       LightningDetector.AS3935_ManualCal(AS3935_CAPACITANCE, AS3935_OUTDOORS, AS3935_DIST_EN);
-      LightningDetector.AS3935_PrintAllRegs();
+      //LightningDetector.AS3935_PrintAllRegs();
       _lightning_isr_counter = 0;
 #endif
       sysclock.add(*this);
@@ -420,10 +418,6 @@ ConfigButton<SensChannelDevice> cfgBtn(sdev);
 
 void setup () {
   DINIT(57600, ASKSIN_PLUS_PLUS_IDENTIFIER);
-#ifdef NDEBUG
-  Serial.begin(57600);
-#endif
-
   sdev.init(hal);
   buttonISR(cfgBtn, CONFIG_BUTTON_PIN);
   sdev.initDone();
