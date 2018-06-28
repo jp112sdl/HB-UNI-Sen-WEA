@@ -6,7 +6,7 @@
 // 2018-05-21 jp112sdl (Creative Commons)
 //- -----------------------------------------------------------------------------------------------------------------------
 // #define NDEBUG
-// #define NSENSORS
+#define NSENSORS
 // #define USE_OTA_BOOTLOADER
 
 #define  EI_NOTEXTERNAL
@@ -20,30 +20,18 @@
 #include <sensors/Bh1750.h>
 #include "Sensors/Sens_Bme280.h"
 #include "Sensors/Sens_VEML6070.h"
-
-///////////////////////////////
-// Lightning Detector AS3935
-#include "PWFusion_AS3935.h"
-
-#define AS3935_IRQ_PIN       3        // digital pins 2 and 3 are available for interrupt capability
-#define AS3935_CS_PIN        7
-#define AS3935_ADD           0x03     // x03 - standard PWF SEN-39001-R01 config
-#define AS3935_CAPACITANCE   72       // <-- SET THIS VALUE TO THE NUMBER LISTED ON YOUR BOARD 
-
-// defines for general chip settings
-#define AS3935_INDOORS       0
-#define AS3935_OUTDOORS      1
-#define AS3935_DIST_DIS      0
-#define AS3935_DIST_EN       1
-
-PWF_AS3935 LightningDetector(AS3935_CS_PIN, AS3935_IRQ_PIN);
-///////////////////////////////
+#include "Sensors/Sens_As3935.h"
 
 #define LED_PIN             4
 #define WINDCOUNTER_PIN     5
 #define RAINCOUNTER_PIN     6
 #define CONFIG_BUTTON_PIN   8
 #define WINDDIRECTION_PIN   A2
+#define AS3935_IRQ_PIN      3
+#define AS3935_CS_PIN       7
+#define AS3935_CAPACITANCE  80       // <-- SET THIS VALUE TO THE NUMBER LISTED ON YOUR BOARD 
+#define AS3935_OUTDOORS     1        // 1 = OUTDOOR, 0 = INDOOR USE
+#define AS3935_DIST_EN      1        // 1 = DISTURBER DETECTION ENABLED, 0 = DISABLED
 
 #define SYSCLOCK_FACTOR     1.0 //only relevant when using sleep mode
 #define BRIGHTNESS_FACTOR   1.2 //you have to multiply BH1750 raw value by 1.2
@@ -61,7 +49,6 @@ using namespace as;
 
 volatile uint32_t _rain_isr_counter = 0;
 volatile uint16_t _wind_isr_counter = 0;
-volatile uint8_t  _lightning_isr_counter = 0;
 
 const struct DeviceInfo PROGMEM devinfo = {
   {0xF1, 0xD0, 0x02},        // Device ID
@@ -73,9 +60,7 @@ const struct DeviceInfo PROGMEM devinfo = {
 };
 
 // Configure the used hardware
-//typedef AvrSPI<10, 11, 12, 13> RadioSPI;
-//typedef AskSin<StatusLed<LED_PIN>, NoBattery, Radio< AvrSPI<10, 11, 12, 13>, 2> > Hal;
-typedef AskSin<StatusLed<LED_PIN>, NoBattery, Radio<LibSPI<10>, 2>> Hal;
+typedef AskSin<NoLed, NoBattery, Radio<LibSPI<10>, 2>> Hal;
 
 Hal hal;
 
@@ -178,6 +163,8 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     Sens_Bme280                 bme280;
     Sens_Veml6070<VEML6070_1_T> veml6070;
     Bh1750<>                    bh1750;
+  public:
+    Sens_As3935<AS3935_IRQ_PIN, AS3935_CS_PIN, AS3935_CAPACITANCE, AS3935_OUTDOORS, AS3935_DIST_EN> as3935;
 
   public:
     WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), firstRun(true), windspeed(0), uvindex(0), short_interval_measure_count(0), background_measure(*this), lightning_check(*this)  {}
@@ -312,33 +299,36 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     }
 
     void measure_lightning() {
-#ifdef NSENSORS
-      lightningcounter = random(65534);
-      lightningdistance = random(15);
-#else
-      if (_lightning_isr_counter > 0) {
-        uint8_t int_src = LightningDetector.AS3935_GetInterruptSrc();
-        if (0 == int_src) {
-          DPRINTLN(F("interrupt source result not expected"));
+      //#ifdef NSENSORS
+      //      lightningcounter = random(65534);
+      //      lightningdistance = random(15);
+      //#else
+      uint8_t lightning_dist_km = 255;
+      if (as3935.LightningIsrCounter() > 0) {
+        switch (as3935.GetInterruptSrc()) {
+          case 0:
+            DPRINTLN(F("interrupt source result not expected"));
+            break;
+          case 1:
+            lightning_dist_km = as3935.LightningDistKm();
+            DPRINT(F("Lightning detected in "));
+            DDEC(lightning_dist_km);
+            DPRINTLN(F(" kilometers"));
+            lightningcounter++;
+            lightningdistance = lightning_dist_km;
+            break;
+          case 2:
+            DPRINTLN(F("Disturber detected"));
+            break;
+          case 3:
+            DPRINTLN(F("Noise high"));
+            break;
         }
-        else if (1 == int_src) {
-          uint8_t lightning_dist_km = LightningDetector.AS3935_GetLightningDistKm();
-          DPRINT(F("Lightning detected in "));
-          DDEC(lightning_dist_km);
-          DPRINTLN(F(" kilometers"));
-          lightningcounter++;
-          lightningdistance = lightning_dist_km / 3;
-        }
-        else if (2 == int_src) {
-          DPRINTLN(F("Disturber detected"));
-        }
-        else if (3 == int_src) {
-          DPRINTLN(F("Noise high"));
-        }
-        //LightningDetector.AS3935_PrintAllRegs(); // for debug...
-        _lightning_isr_counter = 0;
+        as3935.ResetLightninIsrCounter();
       }
-#endif
+      //      as3935.PrintAllRegs();
+      DPRINT("Lightning Dist km = "); DDECLN(as3935.LightningDistKm());
+      //#endif
     }
 
     void measure_thpb() {
@@ -371,11 +361,8 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       bh1750.init();
       bme280.init();
       veml6070.init();
-      LightningDetector.AS3935_DefInit();
-      LightningDetector.AS3935_ManualCal(AS3935_CAPACITANCE, AS3935_OUTDOORS, AS3935_DIST_EN);
-      //LightningDetector.AS3935_PrintAllRegs();
-      _lightning_isr_counter = 0;
 #endif
+      as3935.init();
       sysclock.add(*this);
       sysclock.add(background_measure);
       sysclock.add(lightning_check);
@@ -421,13 +408,13 @@ void setup () {
   sdev.init(hal);
   buttonISR(cfgBtn, CONFIG_BUTTON_PIN);
   sdev.initDone();
+
   pinMode(RAINCOUNTER_PIN, INPUT_PULLUP);
   pinMode(WINDCOUNTER_PIN, INPUT_PULLUP);
   pinMode(WINDDIRECTION_PIN, INPUT_PULLUP);
 
   if ( digitalPinToInterrupt(RAINCOUNTER_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(RAINCOUNTER_PIN, raincounterISR, RISING); else attachInterrupt(digitalPinToInterrupt(RAINCOUNTER_PIN), raincounterISR, RISING);
   if ( digitalPinToInterrupt(WINDCOUNTER_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(WINDCOUNTER_PIN, windcounterISR, RISING); else attachInterrupt(digitalPinToInterrupt(WINDCOUNTER_PIN), windcounterISR, RISING);
-  if ( digitalPinToInterrupt(AS3935_IRQ_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(AS3935_IRQ_PIN, lightningISR, RISING); else attachInterrupt(digitalPinToInterrupt(AS3935_IRQ_PIN), lightningISR, RISING);
 }
 
 void loop() {
@@ -446,8 +433,5 @@ void windcounterISR() {
   _wind_isr_counter++;
 }
 
-void lightningISR() {
-  _lightning_isr_counter = 1;
-}
 
 
