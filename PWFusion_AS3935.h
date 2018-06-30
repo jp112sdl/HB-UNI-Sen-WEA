@@ -11,7 +11,7 @@ class PWF_AS3935
 {
  public:
 	PWF_AS3935(uint8_t CSx, uint8_t IRQx);
-	void AS3935_ManualCal(uint8_t capacitance, uint8_t location, uint8_t disturber);
+	void AS3935_ManualCal(uint8_t capacitance, uint8_t disturber);
 	void AS3935_DefInit(void);
 	void AS3935_PowerUp(void);
 	void AS3935_PowerDown(void);
@@ -24,7 +24,6 @@ class PWF_AS3935
 	uint32_t AS3935_GetStrikeEnergyRaw(void);
 	uint8_t AS3935_SetMinStrikes(uint8_t min_strk);
 	void AS3935_ClearStatistics(void);
-	void AS3935_SetIndoors(void);
 	void AS3935_SetOutdoors(void);
 	uint8_t AS3935_GetNoiseFloorLvl(void);
 	void AS3935_SetNoiseFloorLvl(uint8_t nf_sel);
