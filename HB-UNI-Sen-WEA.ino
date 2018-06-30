@@ -5,9 +5,9 @@
 // 2018-05-11 Tom Major (Creative Commons)
 // 2018-05-21 jp112sdl (Creative Commons)
 //- -----------------------------------------------------------------------------------------------------------------------
-// #define NDEBUG
-#define NSENSORS
 // #define USE_OTA_BOOTLOADER
+// #define NDEBUG
+// #define NSENSORS
 
 #define  EI_NOTEXTERNAL
 #include <EnableInterrupt.h>
@@ -27,11 +27,6 @@
 #define RAINCOUNTER_PIN     6
 #define CONFIG_BUTTON_PIN   8
 #define WINDDIRECTION_PIN   A2
-#define AS3935_IRQ_PIN      3
-#define AS3935_CS_PIN       7
-#define AS3935_CAPACITANCE  80       // <-- SET THIS VALUE TO THE NUMBER LISTED ON YOUR BOARD 
-#define AS3935_OUTDOORS     1        // 1 = OUTDOOR, 0 = INDOOR USE
-#define AS3935_DIST_EN      1        // 1 = DISTURBER DETECTION ENABLED, 0 = DISABLED
 
 #define SYSCLOCK_FACTOR     1.0 //only relevant when using sleep mode
 #define BRIGHTNESS_FACTOR   1.2 //you have to multiply BH1750 raw value by 1.2
@@ -61,6 +56,7 @@ const struct DeviceInfo PROGMEM devinfo = {
 
 // Configure the used hardware
 typedef AskSin<NoLed, NoBattery, Radio<LibSPI<10>, 2>> Hal;
+//typedef AskSin<StatusLed<LED_PIN>, NoBattery, Radio<LibSPI<10>, 2>> Hal;
 
 Hal hal;
 
@@ -112,7 +108,7 @@ class SensorList0 : public RegList0<Reg0> {
     }
 };
 
-DEFREGISTER(UReg1, 0x01, 0x02, 0x03)
+DEFREGISTER(UReg1, 0x01, 0x02, 0x03, 0x04, 0x05)
 class SensorList1 : public RegList1<UReg1> {
   public:
     SensorList1 (uint16_t addr) : RegList1<UReg1>(addr) {}
@@ -130,10 +126,26 @@ class SensorList1 : public RegList1<UReg1> {
       return (this->readRegister(0x02, 0) << 8) + this->readRegister(0x03, 0);
     }
 
+    bool LightningDetectorCapacitor (uint8_t value) const {
+      return this->writeRegister(0x04, value & 0xff);
+    }
+    uint8_t LightningDetectorCapacitor () const {
+      return this->readRegister(0x04, 0);
+    }
+
+    bool LightningDetectorDisturberDetection () const {
+      return this->readBit(0x05, 0, true);
+    }
+    bool LightningDetectorDisturberDetection (bool v) const {
+      return this->writeBit(0x05, 0, v);
+    }
+
     void defaults () {
       clear();
       AnemometerRadius(65);
       AnemometerCalibrationFactor(10);
+      LightningDetectorCapacitor(80);
+      LightningDetectorDisturberDetection(true);
     }
 };
 
@@ -154,7 +166,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     uint8_t       winddir;
     uint8_t       idxoldwdir;
     uint8_t       winddirrange;
-    bool          firstRun;
+    bool          initComplete;
     uint8_t       short_interval_measure_count;
 
     uint8_t       anemometerRadius;
@@ -164,10 +176,10 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     Sens_Veml6070<VEML6070_1_T> veml6070;
     Bh1750<>                    bh1750;
   public:
-    Sens_As3935<AS3935_IRQ_PIN, AS3935_CS_PIN, AS3935_CAPACITANCE, AS3935_OUTDOORS, AS3935_DIST_EN> as3935;
+    Sens_As3935<> as3935;
 
   public:
-    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), firstRun(true), windspeed(0), uvindex(0), short_interval_measure_count(0), background_measure(*this), lightning_check(*this)  {}
+    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), initComplete(true), windspeed(0), uvindex(0), short_interval_measure_count(0), background_measure(*this), lightning_check(*this)  {}
     virtual ~WeatherChannel () {}
 
     class WindSpeedMeasureAlarm : public Alarm {
@@ -199,11 +211,14 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     } lightning_check;
 
     virtual void trigger (__attribute__ ((unused)) AlarmClock& clock) {
+      //if (!initComplete) {
+      //  as3935.init(this->getList1().LightningDetectorCapacitor(), this->getList1().LightningDetectorDisturberDetection());
+      //}
       measure_winddirection();
       measure_thpb();
       measure_rain();
 
-      if (!firstRun) {
+      if (!initComplete) {
         windspeed = windspeed / short_interval_measure_count;
         uvindex = uvindex / short_interval_measure_count;
       }
@@ -219,7 +234,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       uint16_t updCycle = this->device().getList0().updIntervall();
       tick = seconds2ticks(updCycle * SYSCLOCK_FACTOR);
       clock.add(*this);
-      firstRun = false;
+      initComplete = false;
       windspeed = 0;
       gustspeed = 0;
       uvindex = 0;
@@ -288,7 +303,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 
     void measure_rain() {
       DPRINT(F("RAINCOUNTER            : "));
-      if (firstRun) {
+      if (initComplete) {
         //manchmal wird bei Initialisierung die ISR ausgelöst, das setzen wir hier zurück
         _rain_isr_counter = 0;
         DPRINTLN(F("first run - nothing"));
@@ -299,36 +314,35 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     }
 
     void measure_lightning() {
-      //#ifdef NSENSORS
-      //      lightningcounter = random(65534);
-      //      lightningdistance = random(15);
-      //#else
-      uint8_t lightning_dist_km = 255;
+#ifdef NSENSORS
+      lightningcounter = random(65534);
+      lightningdistance = random(15);
+#else
+      uint8_t lightning_dist_km = 0;
       if (as3935.LightningIsrCounter() > 0) {
         switch (as3935.GetInterruptSrc()) {
           case 0:
-            DPRINTLN(F("interrupt source result not expected"));
+            DPRINTLN("LD IRQ SRC NOT EXPECTED");
             break;
           case 1:
             lightning_dist_km = as3935.LightningDistKm();
-            DPRINT(F("Lightning detected in "));
+            DPRINT("LD LIGHTNING IN ");
             DDEC(lightning_dist_km);
-            DPRINTLN(F(" kilometers"));
+            DPRINTLN(" km");
             lightningcounter++;
             lightningdistance = lightning_dist_km;
             break;
           case 2:
-            DPRINTLN(F("Disturber detected"));
+            DPRINTLN("LD DIST DETECTED");
             break;
           case 3:
-            DPRINTLN(F("Noise high"));
+            DPRINTLN("LD NOISE HIGH");
             break;
         }
         as3935.ResetLightninIsrCounter();
       }
-      //      as3935.PrintAllRegs();
-      DPRINT("Lightning Dist km = "); DDECLN(as3935.LightningDistKm());
-      //#endif
+      //DPRINT("Lightning Dist km = "); DDECLN(as3935.LightningDistKm());
+#endif
     }
 
     void measure_thpb() {
@@ -362,7 +376,6 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       bme280.init();
       veml6070.init();
 #endif
-      as3935.init();
       sysclock.add(*this);
       sysclock.add(background_measure);
       sysclock.add(lightning_check);
@@ -375,6 +388,12 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       DPRINTLN(F("* ANEMOMETER           : "));
       DPRINT(F("*  - RADIUS            : ")); DDECLN(anemometerRadius);
       DPRINT(F("*  - CALIBRATIONFACTOR : ")); DDECLN(anemometerCalibrationFactor);
+      DPRINTLN(F("* LIGHTNINGDETECTOR    : "));
+      DPRINT(F("*  - CAPACITOR         : ")); DDECLN(this->getList1().LightningDetectorCapacitor());
+      DPRINT(F("*  - DISTURB.DETECTION : ")); DDECLN(this->getList1().LightningDetectorDisturberDetection());
+#ifndef NSENSORS
+      as3935.init(this->getList1().LightningDetectorCapacitor(), this->getList1().LightningDetectorDisturberDetection());
+#endif
     }
 
     uint8_t status () const {
@@ -404,7 +423,11 @@ SensChannelDevice sdev(devinfo, 0x20);
 ConfigButton<SensChannelDevice> cfgBtn(sdev);
 
 void setup () {
+#ifdef NDEBUG
+  Serial.begin(57600);
+#else
   DINIT(57600, ASKSIN_PLUS_PLUS_IDENTIFIER);
+#endif
   sdev.init(hal);
   buttonISR(cfgBtn, CONFIG_BUTTON_PIN);
   sdev.initDone();
