@@ -38,6 +38,8 @@ Kugellager: [eBay-Link](https://www.ebay.de/itm/251368539841)
 
 #### Addon für die CCU / RaspberryMatic
 
+**Um die Geräteunterstützung zu aktivieren, wird die aktuellste Version des [JP-HB-Devices Addon](https://github.com/jp112sdl/JP-HB-Devices-addon/releases/latest) benötigt!**
+
 Einstellungen:<br>
 ![einstellungen](Images/CCU_Einstellungen.png)
 
