@@ -211,9 +211,6 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     } lightning_check;
 
     virtual void trigger (__attribute__ ((unused)) AlarmClock& clock) {
-      //if (!initComplete) {
-      //  as3935.init(this->getList1().LightningDetectorCapacitor(), this->getList1().LightningDetectorDisturberDetection());
-      //}
       measure_winddirection();
       measure_thpb();
       measure_rain();
@@ -228,7 +225,6 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       DPRINT(F("UV Index               : ")); DDECLN(uvindex);
 
       msg.init(device().nextcount(), temperature, airPressure, humidity, brightness, raincounter, windspeed, winddir, winddirrange, gustspeed, uvindex, lightningcounter, lightningdistance);
-
       device().sendPeerEvent(msg, *this);
 
       uint16_t updCycle = this->device().getList0().updIntervall();
@@ -246,7 +242,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       _wind_isr_counter = random(20);
 #endif
       //V = 2 * R * Pi * N
-      int   kmph =  3.141593 * 2 * (anemometerRadius / 100.0) * (_wind_isr_counter / (WINDSPEED_MEASUREINTERVAL_SECONDS * SYSCLOCK_FACTOR)) * 3.6 * (anemometerCalibrationFactor / 10.0);
+      int kmph =  3.141593 * 2 * (anemometerRadius / 100.0) * (_wind_isr_counter / (WINDSPEED_MEASUREINTERVAL_SECONDS * SYSCLOCK_FACTOR)) * 3.6 * (anemometerCalibrationFactor / 10.0);
       if (kmph > gustspeed) {
         gustspeed = kmph;
       }
