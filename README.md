@@ -6,7 +6,7 @@
 
 #### Code
 - verwendete Bibliotheken:
-  - _[BH1750](https://github.com/claws/BH1750) Helligkeitsensor_
+  - _[BH1750](https://github.com/claws/BH1750) Helligkeitsensor (nach Möglichkeit den MAX44009 Sensor einsetzen)_
   - [BME280](https://github.com/finitespace/BME280) Temperatur / Feuchte / Luftdruck
 
 #### Hardware (Elektronik)
@@ -16,7 +16,7 @@
   - [VEML6070](https://www.ebay.de/itm/183207531222)
   - [BME280](https://www.ebay.de/itm/253107395109)
   - [Reed-Kontakte](https://www.ebay.de/itm/263000077321)
-  - _[BH1750](https://www.ebay.de/itm/162351871499)_
+  - _[BH1750](https://www.ebay.de/itm/162351871499) (nicht mehr empfohlen - der MAX44009 hat einen größeren Messbereich)_
   - [MAX44009](https://www.ebay.de/itm/162727018038)
   - [AS3935](https://de.aliexpress.com/item/New-AS3935-lightning-sensor-Lightning-lightning-lightning-detection-storm-distance/32830108558.html)
 
