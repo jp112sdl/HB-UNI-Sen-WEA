@@ -9,6 +9,9 @@
 // #define NDEBUG
 // #define NSENSORS // if defined, only fake values are used
 
+#define USE_MAX44009
+//#define USE_BH1750
+
 #define  EI_NOTEXTERNAL
 #include <EnableInterrupt.h>
 #include <SPI.h>  // after including SPI Library - we can use LibSPI class
@@ -18,10 +21,9 @@
 
 #include <MultiChannelDevice.h>
 #include <sensors/Bh1750.h>
-//#include <sensors/Max44009.h>
+#include <sensors/Max44009.h>
+#include <sensors/Veml6070.h>
 #include "Sensors/Sens_Bme280.h"
-#include "Sensors/Sens_Max44009.h"
-#include "Sensors/Sens_VEML6070.h"
 #include "Sensors/Sens_As3935.h"
 
 #define LED_PIN             4
@@ -30,8 +32,6 @@
 #define CONFIG_BUTTON_PIN   8
 #define WINDDIRECTION_PIN   A2
 
-#define USE_MAX44009
-//#define USE_BH1750
 #define BH1750_BRIGHTNESS_FACTOR   1.2 //you have to multiply BH1750 raw value by 1.2
 
 //                             N                      O                       S                         W
@@ -41,7 +41,7 @@ const uint16_t WINDDIRS[] = { 806 , 371, 407, 999 , 228 ,  215 , 773 , 279,  304
 #define WINDDIR_TOLERANCE   5
 #define WINDSPEED_MEASUREINTERVAL_SECONDS 5
 
-#define PEERS_PER_CHANNEL   2
+#define PEERS_PER_CHANNEL   4
 
 using namespace as;
 
@@ -149,7 +149,7 @@ class SensorList1 : public RegList1<UReg1> {
     uint8_t ExtraMessageOnGustThreshold () const {
       return this->readRegister(0x06, 0);
     }
-
+   
     void defaults () {
       clear();
       AnemometerRadius(65);
@@ -275,9 +275,11 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       if (extraMessageOnGustThreshold > 0 && kmph > (extraMessageOnGustThreshold * 10)) {
         sendExtraMessageOnGustThreshold();
       }
+      
       if (kmph > gustspeed) {
         gustspeed = kmph;
       }
+      
       windspeed += kmph;
       _wind_isr_counter = 0;
     }
