@@ -10,7 +10,7 @@
 */
 #include <EnableInterrupt.h>
 
-const uint16_t WINDDIRS[] = { 523  , 570 ,  474 , 746 , 624  , 806 , 370, 407, 999 , 228 ,  215 , 773 , 279 , 304, 290  , 880 };
+const uint16_t WINDDIRS[] = { 806 , 371, 407, 999 , 228 ,  215 , 773 , 279,  304, 290  , 880, 523  , 570 ,  474 , 746 , 624   };
 #define WINDDIR_TOLERANCE   5
 #define WINDDIRECTION_PIN   A2
 #define WINDCOUNTER_PIN     5
@@ -28,7 +28,7 @@ void setup() {
 void loop() {
   delay(100);
 
-  /*  int winddir = 0;     // Grad/3: 60° = 20; 0° = Norden
+   int winddir = 0;     // Grad/3: 60° = 20; 0° = Norden
     uint8_t idxwdir = 0;
 
     uint16_t aVal = 0;
@@ -44,7 +44,8 @@ void loop() {
         break;
       }
     }
-    Serial.println("A2 = "+String(aVal)+"; idx = "+String(idxwdir));*/
+    Serial.println("A2 = "+String(aVal)+"; idx = "+String(idxwdir));
+    
   if (lastWindcounter != _windcounter) {
     lastWindcounter = _windcounter;
     Serial.println("windcounter = " + String(_windcounter));
