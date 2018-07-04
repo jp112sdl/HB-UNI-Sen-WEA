@@ -182,7 +182,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 
     uint8_t       anemometerRadius;
     uint8_t       anemometerCalibrationFactor;
-    uint8_t       ExtraMessageOnGustThreshold;
+    uint8_t       extraMessageOnGustThreshold;
 
     Sens_Bme280                 bme280;
     Sens_Veml6070<VEML6070_1_T> veml6070;
@@ -259,7 +259,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       processMessage();
     }
 
-    void extraMessageOnGustThreshold () {
+    void sendExtraMessageOnGustThreshold () {
       DPRINTLN("SENDING EXTRA MESSAGE");
       sysclock.cancel(*this);
       processMessage();
@@ -272,8 +272,8 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       //V = 2 * R * Pi * N
       //  int kmph =  3.141593 * 2 * ((float)anemometerRadius / 100)   * ((float)_wind_isr_counter / (float)WINDSPEED_MEASUREINTERVAL_SECONDS)        * 3.6 * ((float)anemometerCalibrationFactor / 10);
       int kmph = ((226L * anemometerRadius * anemometerCalibrationFactor * _wind_isr_counter) / WINDSPEED_MEASUREINTERVAL_SECONDS) / 10000;
-      if (ExtraMessageOnGustThreshold > 0 && kmph > (ExtraMessageOnGustThreshold * 10)) {
-        extraMessageOnGustThreshold();
+      if (extraMessageOnGustThreshold > 0 && kmph > (extraMessageOnGustThreshold * 10)) {
+        sendExtraMessageOnGustThreshold();
       }
       if (kmph > gustspeed) {
         gustspeed = kmph;
@@ -420,12 +420,12 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     void configChanged() {
       anemometerRadius = this->getList1().AnemometerRadius();
       anemometerCalibrationFactor = this->getList1().AnemometerCalibrationFactor();
-      ExtraMessageOnGustThreshold = this->getList1().ExtraMessageOnGustThreshold();
+      extraMessageOnGustThreshold = this->getList1().ExtraMessageOnGustThreshold();
       DPRINTLN("* Config changed       : List1");
       DPRINTLN(F("* ANEMOMETER           : "));
       DPRINT(F("*  - RADIUS            : ")); DDECLN(anemometerRadius);
       DPRINT(F("*  - CALIBRATIONFACTOR : ")); DDECLN(anemometerCalibrationFactor);
-      DPRINT(F("*  - GUST MSG THRESHOLD: ")); DDECLN(ExtraMessageOnGustThreshold);
+      DPRINT(F("*  - GUST MSG THRESHOLD: ")); DDECLN(extraMessageOnGustThreshold);
       DPRINTLN(F("* LIGHTNINGDETECTOR    : "));
       DPRINT(F("*  - CAPACITOR         : ")); DDECLN(this->getList1().LightningDetectorCapacitor());
       DPRINT(F("*  - DISTURB.DETECTION : ")); DDECLN(this->getList1().LightningDetectorDisturberDetection());
