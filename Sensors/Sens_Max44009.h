@@ -10,7 +10,7 @@
 
 #include <Sensors.h>
 #include <Wire.h>
-#include "../Max44009.h"
+#include <Max44009.h>
 
 namespace as {
 
