@@ -18,9 +18,10 @@
 
 #include <MultiChannelDevice.h>
 #include <sensors/Bh1750.h>
+//#include <sensors/Max44009.h>
 #include "Sensors/Sens_Bme280.h"
-#include "Sensors/Sens_VEML6070.h"
 #include "Sensors/Sens_Max44009.h"
+#include "Sensors/Sens_VEML6070.h"
 #include "Sensors/Sens_As3935.h"
 
 #define LED_PIN             4
@@ -31,7 +32,7 @@
 
 #define USE_MAX44009
 //#define USE_BH1750
-//#define BH1750_BRIGHTNESS_FACTOR   1.2 //you have to multiply BH1750 raw value by 1.2
+#define BH1750_BRIGHTNESS_FACTOR   1.2 //you have to multiply BH1750 raw value by 1.2
 
 //                             N                      O                       S                         W
 //entspricht Windrichtung in ° 0 , 22.5, 45  , 67.5, 90  ,112.5, 135, 157.5, 180 , 202.5, 225 , 247.5, 270 , 292.5, 315 , 337.5
@@ -110,7 +111,7 @@ class SensorList0 : public RegList0<Reg0> {
     }
 };
 
-DEFREGISTER(UReg1, 0x01, 0x02, 0x03, 0x04, 0x05)
+DEFREGISTER(UReg1, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06)
 class SensorList1 : public RegList1<UReg1> {
   public:
     SensorList1 (uint16_t addr) : RegList1<UReg1>(addr) {}
@@ -142,12 +143,20 @@ class SensorList1 : public RegList1<UReg1> {
       return this->writeBit(0x05, 0, v);
     }
 
+    bool ExtraMessageOnGustThreshold (uint8_t value) const {
+      return this->writeRegister(0x06, value & 0xff);
+    }
+    uint8_t ExtraMessageOnGustThreshold () const {
+      return this->readRegister(0x06, 0);
+    }
+
     void defaults () {
       clear();
       AnemometerRadius(65);
       AnemometerCalibrationFactor(10);
       LightningDetectorCapacitor(80);
       LightningDetectorDisturberDetection(true);
+      ExtraMessageOnGustThreshold(0);
     }
 };
 
@@ -173,6 +182,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 
     uint8_t       anemometerRadius;
     uint8_t       anemometerCalibrationFactor;
+    uint8_t       ExtraMessageOnGustThreshold;
 
     Sens_Bme280                 bme280;
     Sens_Veml6070<VEML6070_1_T> veml6070;
@@ -186,7 +196,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     Sens_As3935<> as3935;
 
   public:
-    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), initComplete(true), windspeed(0), uvindex(0), short_interval_measure_count(0), background_measure(*this), lightning_check(*this)  {}
+    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), initComplete(false), windspeed(0), uvindex(0), short_interval_measure_count(0), background_measure(*this), lightning_check(*this)  {}
     virtual ~WeatherChannel () {}
 
     class WindSpeedMeasureAlarm : public Alarm {
@@ -217,12 +227,12 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
         }
     } lightning_check;
 
-    virtual void trigger (__attribute__ ((unused)) AlarmClock& clock) {
+    void processMessage() {
       measure_winddirection();
       measure_thpb();
       measure_rain();
 
-      if (!initComplete) {
+      if (initComplete) {
         windspeed = windspeed / short_interval_measure_count;
         uvindex = uvindex / short_interval_measure_count;
       }
@@ -236,12 +246,23 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 
       uint16_t updCycle = this->device().getList0().updIntervall();
       tick = seconds2ticks(updCycle);
-      clock.add(*this);
-      initComplete = false;
+
+      initComplete = true;
       windspeed = 0;
       gustspeed = 0;
       uvindex = 0;
       short_interval_measure_count = 0;
+      sysclock.add(*this);
+    }
+
+    virtual void trigger (__attribute__ ((unused)) AlarmClock& clock) {
+      processMessage();
+    }
+
+    void extraMessageOnGustThreshold () {
+      DPRINTLN("SENDING EXTRA MESSAGE");
+      sysclock.cancel(*this);
+      processMessage();
     }
 
     void measure_windspeed() {
@@ -251,6 +272,9 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       //V = 2 * R * Pi * N
       //  int kmph =  3.141593 * 2 * ((float)anemometerRadius / 100)   * ((float)_wind_isr_counter / (float)WINDSPEED_MEASUREINTERVAL_SECONDS)        * 3.6 * ((float)anemometerCalibrationFactor / 10);
       int kmph = ((226L * anemometerRadius * anemometerCalibrationFactor * _wind_isr_counter) / WINDSPEED_MEASUREINTERVAL_SECONDS) / 10000;
+      if (ExtraMessageOnGustThreshold > 0 && kmph > (ExtraMessageOnGustThreshold * 10)) {
+        extraMessageOnGustThreshold();
+      }
       if (kmph > gustspeed) {
         gustspeed = kmph;
       }
@@ -307,14 +331,12 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 
     void measure_rain() {
       DPRINT(F("RAINCOUNTER            : "));
-      if (initComplete) {
-        //manchmal wird bei Initialisierung die ISR ausgelöst, das setzen wir hier zurück
+      if (!initComplete) {
         _rain_isr_counter = 0;
-        DPRINTLN(F("first run - nothing"));
       } else {
         raincounter = _rain_isr_counter;
-        DDECLN(raincounter);
       }
+      DDECLN(_rain_isr_counter);
     }
 
     void measure_lightning() {
@@ -345,7 +367,6 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
         }
         as3935.ResetLightninIsrCounter();
       }
-      //DPRINT("Lightning Dist km = "); DDECLN(as3935.LightningDistKm());
 #endif
     }
 
@@ -399,10 +420,12 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     void configChanged() {
       anemometerRadius = this->getList1().AnemometerRadius();
       anemometerCalibrationFactor = this->getList1().AnemometerCalibrationFactor();
+      ExtraMessageOnGustThreshold = this->getList1().ExtraMessageOnGustThreshold();
       DPRINTLN("* Config changed       : List1");
       DPRINTLN(F("* ANEMOMETER           : "));
       DPRINT(F("*  - RADIUS            : ")); DDECLN(anemometerRadius);
       DPRINT(F("*  - CALIBRATIONFACTOR : ")); DDECLN(anemometerCalibrationFactor);
+      DPRINT(F("*  - GUST MSG THRESHOLD: ")); DDECLN(ExtraMessageOnGustThreshold);
       DPRINTLN(F("* LIGHTNINGDETECTOR    : "));
       DPRINT(F("*  - CAPACITOR         : ")); DDECLN(this->getList1().LightningDetectorCapacitor());
       DPRINT(F("*  - DISTURB.DETECTION : ")); DDECLN(this->getList1().LightningDetectorDisturberDetection());
