@@ -18,6 +18,7 @@
   - [BME280](https://www.ebay.de/itm/253107395109)
   - [Reed-Kontakte](https://www.ebay.de/itm/263000077321)
   - [BH1750](https://www.ebay.de/itm/162351871499)
+  - [AS3935](https://de.aliexpress.com/item/New-AS3935-lightning-sensor-Lightning-lightning-lightning-detection-storm-distance/32830108558.html)
 
 
 #### Gehäuse-/Konstrukt-Teile

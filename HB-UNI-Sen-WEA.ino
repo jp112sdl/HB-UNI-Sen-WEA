@@ -5,19 +5,26 @@
 // 2018-05-11 Tom Major (Creative Commons)
 // 2018-05-21 jp112sdl (Creative Commons)
 //- -----------------------------------------------------------------------------------------------------------------------
-// #define NDEBUG
-#define NSENSORS
 // #define USE_OTA_BOOTLOADER
+// #define NDEBUG
+// #define NSENSORS // if defined, only fake values are used
+
+#define USE_MAX44009
+//#define USE_BH1750
 
 #define  EI_NOTEXTERNAL
 #include <EnableInterrupt.h>
+#include <SPI.h>  // after including SPI Library - we can use LibSPI class
 #include <AskSinPP.h>
 #include <LowPower.h>
 #include <Register.h>
+
 #include <MultiChannelDevice.h>
 #include <sensors/Bh1750.h>
+#include <sensors/Max44009.h>
+#include <sensors/Veml6070.h>
 #include "Sensors/Sens_Bme280.h"
-#include "Sensors/Sens_VEML6070.h"
+#include "Sensors/Sens_As3935.h"
 
 #define LED_PIN             4
 #define WINDCOUNTER_PIN     5
@@ -25,17 +32,16 @@
 #define CONFIG_BUTTON_PIN   8
 #define WINDDIRECTION_PIN   A2
 
-#define SYSCLOCK_FACTOR     1.0 //only relevant when using sleep mode
-#define BRIGHTNESS_FACTOR   1.2 //you have to multiply BH1750 raw value by 1.2
+#define BH1750_BRIGHTNESS_FACTOR   1.2 //you have to multiply BH1750 raw value by 1.2
 
 //                             N                      O                       S                         W
 //entspricht Windrichtung in ° 0 , 22.5, 45  , 67.5, 90  ,112.5, 135, 157.5, 180 , 202.5, 225 , 247.5, 270 , 292.5, 315 , 337.5
-const uint16_t WINDDIRS[] = { 523  , 570 ,  474 , 746 , 624  , 806 , 370, 407, 999 , 228 ,  215 , 773 , 279 , 304, 290  , 880 };
+const uint16_t WINDDIRS[] = { 806 , 371, 407, 999 , 228 ,  215 , 773 , 279,  304, 290  , 880, 523  , 570 ,  474 , 746 , 624 };
 //(kleinste Werteabweichung / 2) - 1
 #define WINDDIR_TOLERANCE   5
 #define WINDSPEED_MEASUREINTERVAL_SECONDS 5
 
-#define PEERS_PER_CHANNEL   2
+#define PEERS_PER_CHANNEL   4
 
 using namespace as;
 
@@ -52,28 +58,29 @@ const struct DeviceInfo PROGMEM devinfo = {
 };
 
 // Configure the used hardware
-typedef AvrSPI<10, 11, 12, 13> RadioSPI;
-typedef AskSin<StatusLed<LED_PIN>, NoBattery, Radio<RadioSPI, 2> > Hal;
+typedef AskSin<NoLed, NoBattery, Radio<LibSPI<10>, 2>> Hal;
+//typedef AskSin<StatusLed<LED_PIN>, NoBattery, Radio<LibSPI<10>, 2>> Hal;
+
 Hal hal;
 
 class WeatherEventMsg : public Message {
   public:
-    void init(uint8_t msgcnt, int16_t temp, uint16_t airPressure, uint8_t humidity, uint16_t brightness, uint16_t raincounter, uint16_t windspeed, uint8_t winddir, uint8_t winddirrange, uint16_t boespeed, uint8_t uvindex, uint16_t lightningcounter, uint8_t lightningdistance) {
+    void init(uint8_t msgcnt, int16_t temp, uint16_t airPressure, uint8_t humidity, uint32_t brightness, uint16_t raincounter, uint16_t windspeed, uint8_t winddir, uint8_t winddirrange, uint16_t gustspeed, uint8_t uvindex, uint8_t lightningcounter, uint8_t lightningdistance) {
       Message::init(0x1a, msgcnt, 0x70, BCAST, (temp >> 8) & 0x7f, temp & 0xff);
       pload[0] = (airPressure >> 8) & 0xff;
       pload[1] = airPressure & 0xff;
       pload[2] = humidity;
-      pload[3] = (brightness >>  8) & 0xff;
-      pload[4] = brightness & 0xff;
-      pload[5] = (raincounter >> 8) & 0xff;
-      pload[6] = raincounter & 0xff;
-      pload[7] = (windspeed >> 8) & 0xff | (winddirrange << 6);
-      pload[8] = windspeed & 0xff;
-      pload[9] = winddir;
-      pload[10] = (boespeed >> 8) & 0xff;
-      pload[11] = boespeed & 0xff;
-      pload[12] = (uvindex & 0xff) | (lightningdistance << 4);
-      pload[13] = (lightningcounter >> 8) & 0xff;
+      pload[3] = (brightness >>  16) & 0xff;
+      pload[4] = (brightness >>  8) & 0xff;
+      pload[5] = brightness & 0xff;
+      pload[6] = (raincounter >> 8) & 0xff;
+      pload[7] = raincounter & 0xff;
+      pload[8] = (windspeed >> 8) & 0xff | (winddirrange << 6);
+      pload[9] = windspeed & 0xff;
+      pload[10] = winddir;
+      pload[11] = (gustspeed >> 8) & 0xff;
+      pload[12] = gustspeed & 0xff;
+      pload[13] = (uvindex & 0xff) | (lightningdistance << 4);
       pload[14] = lightningcounter & 0xff;
     }
 };
@@ -104,7 +111,7 @@ class SensorList0 : public RegList0<Reg0> {
     }
 };
 
-DEFREGISTER(UReg1, 0x01, 0x02, 0x03)
+DEFREGISTER(UReg1, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06)
 class SensorList1 : public RegList1<UReg1> {
   public:
     SensorList1 (uint16_t addr) : RegList1<UReg1>(addr) {}
@@ -122,46 +129,78 @@ class SensorList1 : public RegList1<UReg1> {
       return (this->readRegister(0x02, 0) << 8) + this->readRegister(0x03, 0);
     }
 
+    bool LightningDetectorCapacitor (uint8_t value) const {
+      return this->writeRegister(0x04, value & 0xff);
+    }
+    uint8_t LightningDetectorCapacitor () const {
+      return this->readRegister(0x04, 0);
+    }
+
+    bool LightningDetectorDisturberDetection () const {
+      return this->readBit(0x05, 0, true);
+    }
+    bool LightningDetectorDisturberDetection (bool v) const {
+      return this->writeBit(0x05, 0, v);
+    }
+
+    bool ExtraMessageOnGustThreshold (uint8_t value) const {
+      return this->writeRegister(0x06, value & 0xff);
+    }
+    uint8_t ExtraMessageOnGustThreshold () const {
+      return this->readRegister(0x06, 0);
+    }
+   
     void defaults () {
       clear();
       AnemometerRadius(65);
       AnemometerCalibrationFactor(10);
+      LightningDetectorCapacitor(80);
+      LightningDetectorDisturberDetection(true);
+      ExtraMessageOnGustThreshold(0);
     }
 };
 
 class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_PER_CHANNEL, SensorList0>, public Alarm {
+
     WeatherEventMsg msg;
     int16_t       temperature;
     uint16_t      airPressure;
     uint8_t       humidity;
-    uint16_t      brightness;
+    uint32_t      brightness;
     uint16_t      raincounter;
     uint16_t      windspeed;
-    uint16_t      boespeed;
+    uint16_t      gustspeed;
     uint8_t       uvindex;
-    uint16_t      lightningcounter;
+    uint8_t       lightningcounter;
     uint8_t       lightningdistance;
 
     uint8_t       winddir;
     uint8_t       idxoldwdir;
     uint8_t       winddirrange;
-    bool          firstRun;
+    bool          initComplete;
     uint8_t       short_interval_measure_count;
 
     uint8_t       anemometerRadius;
     uint8_t       anemometerCalibrationFactor;
+    uint8_t       extraMessageOnGustThreshold;
 
     Sens_Bme280                 bme280;
     Sens_Veml6070<VEML6070_1_T> veml6070;
+#ifdef USE_BH1750
     Bh1750<>                    bh1750;
-
+#endif
+#ifdef USE_MAX44009
+    MAX44009<>                    max44009;
+#endif
+  public:
+    Sens_As3935<> as3935;
 
   public:
-    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), firstRun(true), windspeed(0), uvindex(0), short_interval_measure_count(0), ws_measure(*this) {}
+    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), initComplete(false), windspeed(0), uvindex(0), short_interval_measure_count(0), background_measure(*this), lightning_check(*this)  {}
     virtual ~WeatherChannel () {}
+
     class WindSpeedMeasureAlarm : public Alarm {
         WeatherChannel& chan;
-        uint16_t      windspeed;
       public:
         WindSpeedMeasureAlarm (WeatherChannel& c) : Alarm (seconds2ticks(WINDSPEED_MEASUREINTERVAL_SECONDS)), chan(c) {}
         virtual ~WindSpeedMeasureAlarm () {}
@@ -173,35 +212,57 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
           clock.add(*this);
           chan.short_interval_measure_count++;
         }
-    } ws_measure;
+    } background_measure;
 
-    virtual void trigger (__attribute__ ((unused)) AlarmClock& clock) {
+    class LightningReceiveAlarm : public Alarm {
+        WeatherChannel& chan;
+      public:
+        LightningReceiveAlarm (WeatherChannel& c) : Alarm (seconds2ticks(1)), chan(c) {}
+        virtual ~LightningReceiveAlarm () {}
+
+        void trigger (__attribute__ ((unused)) AlarmClock& clock)  {
+          chan.measure_lightning();
+          tick = (seconds2ticks(1));
+          clock.add(*this);
+        }
+    } lightning_check;
+
+    void processMessage() {
       measure_winddirection();
       measure_thpb();
       measure_rain();
-      measure_lightning();
 
-      if (!firstRun) {
+      if (initComplete) {
         windspeed = windspeed / short_interval_measure_count;
         uvindex = uvindex / short_interval_measure_count;
       }
 
-      DPRINT(F("BOESPEED boespeed      : ")); DDECLN(boespeed);
+      DPRINT(F("GUSTSPEED gustspeed    : ")); DDECLN(gustspeed);
       DPRINT(F("WINDSPEED windspeed    : ")); DDECLN(windspeed);
       DPRINT(F("UV Index               : ")); DDECLN(uvindex);
 
-      msg.init(device().nextcount(), temperature, airPressure, humidity, brightness, raincounter, windspeed, winddir, winddirrange, boespeed, uvindex, lightningcounter, lightningdistance);
-
+      msg.init(device().nextcount(), temperature, airPressure, humidity, brightness, raincounter, windspeed, winddir, winddirrange, gustspeed, uvindex, lightningcounter, lightningdistance);
       device().sendPeerEvent(msg, *this);
 
       uint16_t updCycle = this->device().getList0().updIntervall();
-      tick = seconds2ticks(updCycle * SYSCLOCK_FACTOR);
-      clock.add(*this);
-      firstRun = false;
+      tick = seconds2ticks(updCycle);
+
+      initComplete = true;
       windspeed = 0;
-      boespeed = 0;
+      gustspeed = 0;
       uvindex = 0;
       short_interval_measure_count = 0;
+      sysclock.add(*this);
+    }
+
+    virtual void trigger (__attribute__ ((unused)) AlarmClock& clock) {
+      processMessage();
+    }
+
+    void sendExtraMessageOnGustThreshold () {
+      DPRINTLN("SENDING EXTRA MESSAGE");
+      sysclock.cancel(*this);
+      processMessage();
     }
 
     void measure_windspeed() {
@@ -209,10 +270,16 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       _wind_isr_counter = random(20);
 #endif
       //V = 2 * R * Pi * N
-      int   kmph =  3.141593 * 2 * (anemometerRadius / 100.0) * (_wind_isr_counter / (WINDSPEED_MEASUREINTERVAL_SECONDS * SYSCLOCK_FACTOR)) * 3.6 * (anemometerCalibrationFactor / 10.0);
-      if (kmph > boespeed) {
-        boespeed = kmph;
+      //  int kmph =  3.141593 * 2 * ((float)anemometerRadius / 100)   * ((float)_wind_isr_counter / (float)WINDSPEED_MEASUREINTERVAL_SECONDS)        * 3.6 * ((float)anemometerCalibrationFactor / 10);
+      int kmph = ((226L * anemometerRadius * anemometerCalibrationFactor * _wind_isr_counter) / WINDSPEED_MEASUREINTERVAL_SECONDS) / 10000;
+      if (extraMessageOnGustThreshold > 0 && kmph > (extraMessageOnGustThreshold * 10)) {
+        sendExtraMessageOnGustThreshold();
       }
+      
+      if (kmph > gustspeed) {
+        gustspeed = kmph;
+      }
+      
       windspeed += kmph;
       _wind_isr_counter = 0;
     }
@@ -232,7 +299,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       uint8_t idxwdir = 0;
 #ifdef NSENSORS
       idxwdir = random(15);
-      winddir = idxwdir * 7.5;
+      winddir = (idxwdir * 15 + 2 / 2) / 2;
 #else
       uint16_t aVal = 0;
       for (uint8_t i = 0; i <= 0xf; i++) {
@@ -243,7 +310,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       for (uint8_t i = 0; i < sizeof(WINDDIRS) / sizeof(uint16_t); i++) {
         if (aVal < WINDDIRS[i] + WINDDIR_TOLERANCE && aVal > WINDDIRS[i] - WINDDIR_TOLERANCE) {
           idxwdir = i;
-          winddir = i * 7.5;
+          winddir = (idxwdir * 15 + 2 / 2) / 2;
           break;
         }
       }
@@ -266,20 +333,42 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 
     void measure_rain() {
       DPRINT(F("RAINCOUNTER            : "));
-      if (firstRun) {
-        //manchmal wird bei Initialisierung die ISR ausgelöst, das setzen wir hier zurück
+      if (!initComplete) {
         _rain_isr_counter = 0;
-        DPRINTLN(F("first run - nothing"));
       } else {
         raincounter = _rain_isr_counter;
-        DDECLN(raincounter);
       }
+      DDECLN(_rain_isr_counter);
     }
 
     void measure_lightning() {
 #ifdef NSENSORS
-      lightningcounter = random(65534);
+      lightningcounter = random(255);
       lightningdistance = random(15);
+#else
+      uint8_t lightning_dist_km = 0;
+      if (as3935.LightningIsrCounter() > 0) {
+        switch (as3935.GetInterruptSrc()) {
+          case 0:
+            DPRINTLN("LD IRQ SRC NOT EXPECTED");
+            break;
+          case 1:
+            lightning_dist_km = as3935.LightningDistKm();
+            DPRINT("LD LIGHTNING IN ");
+            DDEC(lightning_dist_km);
+            DPRINTLN(" km");
+            lightningcounter++;
+            lightningdistance = lightning_dist_km;
+            break;
+          case 2:
+            DPRINTLN("LD DIST DETECTED");
+            break;
+          case 3:
+            DPRINTLN("LD NOISE HIGH");
+            break;
+        }
+        as3935.ResetLightninIsrCounter();
+      }
 #endif
     }
 
@@ -289,7 +378,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       airPressure = 9000 + random(2000);   // 1024 hPa +x
       humidity    = 66 + random(7);     // 66% +x
       temperature = 150 + random(50);   // 15C +x
-      brightness = 67000 + random(1000);   // 67000 Lux +x
+      brightness = 1700000 + random(10000);   // 67000 Lux +x
       DPRINT(F("        airPressure    : ")); DDECLN(airPressure);
       DPRINT(F("        humidity       : ")); DDECLN(humidity);
       DPRINT(F("        temperature    : ")); DDECLN(temperature);
@@ -300,8 +389,14 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       airPressure = bme280.pressureNN();
       humidity    = bme280.humidity();
 
+#ifdef USE_BH1750
       bh1750.measure();
-      brightness = bh1750.brightness() * BRIGHTNESS_FACTOR;
+      brightness = bh1750.brightness() * 10 * BH1750_BRIGHTNESS_FACTOR;
+#endif
+#ifdef USE_MAX44009
+      max44009.measure();
+      brightness = max44009.brightness();
+#endif
       DPRINT(F("BRIGHTNESS             : ")  ); DDECLN(brightness);
 #endif
     }
@@ -310,21 +405,35 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       Channel::setup(dev, number, addr);
       tick = seconds2ticks(3);	// first message in 3 sec.
 #ifndef NSENSORS
+#ifdef USE_BH1750
       bh1750.init();
+#endif
+#ifdef USE_MAX44009
+      max44009.init();
+#endif
       bme280.init();
       veml6070.init();
 #endif
       sysclock.add(*this);
-      sysclock.add(ws_measure);
+      sysclock.add(background_measure);
+      sysclock.add(lightning_check);
     }
 
     void configChanged() {
       anemometerRadius = this->getList1().AnemometerRadius();
       anemometerCalibrationFactor = this->getList1().AnemometerCalibrationFactor();
+      extraMessageOnGustThreshold = this->getList1().ExtraMessageOnGustThreshold();
       DPRINTLN("* Config changed       : List1");
       DPRINTLN(F("* ANEMOMETER           : "));
       DPRINT(F("*  - RADIUS            : ")); DDECLN(anemometerRadius);
       DPRINT(F("*  - CALIBRATIONFACTOR : ")); DDECLN(anemometerCalibrationFactor);
+      DPRINT(F("*  - GUST MSG THRESHOLD: ")); DDECLN(extraMessageOnGustThreshold);
+      DPRINTLN(F("* LIGHTNINGDETECTOR    : "));
+      DPRINT(F("*  - CAPACITOR         : ")); DDECLN(this->getList1().LightningDetectorCapacitor());
+      DPRINT(F("*  - DISTURB.DETECTION : ")); DDECLN(this->getList1().LightningDetectorDisturberDetection());
+#ifndef NSENSORS
+      as3935.init(this->getList1().LightningDetectorCapacitor(), this->getList1().LightningDetectorDisturberDetection());
+#endif
     }
 
     uint8_t status () const {
@@ -354,10 +463,15 @@ SensChannelDevice sdev(devinfo, 0x20);
 ConfigButton<SensChannelDevice> cfgBtn(sdev);
 
 void setup () {
+#ifdef NDEBUG
+  Serial.begin(57600);
+#else
   DINIT(57600, ASKSIN_PLUS_PLUS_IDENTIFIER);
+#endif
   sdev.init(hal);
   buttonISR(cfgBtn, CONFIG_BUTTON_PIN);
   sdev.initDone();
+
   pinMode(RAINCOUNTER_PIN, INPUT_PULLUP);
   pinMode(WINDCOUNTER_PIN, INPUT_PULLUP);
   pinMode(WINDDIRECTION_PIN, INPUT_PULLUP);
@@ -381,4 +495,6 @@ void raincounterISR() {
 void windcounterISR() {
   _wind_isr_counter++;
 }
+
+
 
