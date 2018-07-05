@@ -185,12 +185,12 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     uint8_t       extraMessageOnGustThreshold;
 
     Sens_Bme280                 bme280;
-    Sens_Veml6070<VEML6070_1_T> veml6070;
+    Veml6070<VEML6070_1_T>      veml6070;
 #ifdef USE_BH1750
     Bh1750<>                    bh1750;
 #endif
 #ifdef USE_MAX44009
-    MAX44009<>                    max44009;
+    MAX44009<>                  max44009;
 #endif
   public:
     Sens_As3935<> as3935;
