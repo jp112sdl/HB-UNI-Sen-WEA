@@ -52,7 +52,7 @@ const struct DeviceInfo PROGMEM devinfo = {
   {0xF1, 0xD0, 0x02},        // Device ID
   "JPWEA00002",           	 // Device Serial
   {0xF1, 0xD0},            	 // Device Model
-  0x10,                   	 // Firmware Version
+  0x11,                   	 // Firmware Version
   as::DeviceType::THSensor,  // Device Type
   {0x01, 0x01}             	 // Info Bytes
 };
