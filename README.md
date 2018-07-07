@@ -35,6 +35,7 @@ Kugellager: [eBay-Link](https://www.ebay.de/itm/251368539841)
 
 ![wiring](Images/wiring.png)
 
+_Hinweis: Die LED wird nicht mehr benutzt und braucht daher nicht verbaut zu werden._
 
 #### Addon für die CCU / RaspberryMatic
 
