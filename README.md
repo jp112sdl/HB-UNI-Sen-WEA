@@ -6,7 +6,7 @@
 
 #### Code
 - verwendete Bibliotheken:
-  - _[BH1750](https://github.com/claws/BH1750) Helligkeitsensor (nach Möglichkeit den MAX44009 Sensor einsetzen)_
+  - _[BH1750](https://github.com/claws/BH1750) Helligkeitsensor (nach Möglichkeit den MAX44009 Sensor einsetzen, dieser hat einen wesentlich größeren Messbereich und benötigt keine Lib)_
   - [BME280](https://github.com/finitespace/BME280) Temperatur / Feuchte / Luftdruck
 
 #### Hardware (Elektronik)
