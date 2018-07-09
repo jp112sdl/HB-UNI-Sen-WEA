@@ -47,13 +47,19 @@ Einstellungen:<br>
 
 - Sendeintervall
   - Sendeintervall :)
-- Altitude
-  - Höhe über dem Meeresspiegel (für die barometrische Luftdruckberechnung erforderlich)
-- WEATHER|Anemometer Radius (cm)
+- Höhe über NN
+  - Höhe der Station über dem Meeresspiegel (für die barometrische Luftdruckberechnung erforderlich)
+- Anemometer Radius (cm)
   - Abstand zwischen Mitte Achse und Mitte Becher
-- WEATHER|Anemometer Calibration Factor
+- Anemometer Calibration Factor
   - Multiplikator, um den eigenen Windwiderstand auszugleichen
-
+- Blitzdetektor Kapazität
+  - Kapazitätsangabe der besten Abstimmung auf 500kHz
+- Blitzdetektor Störererkennung
+  - automatisches Unterdrücken von Störimpulsen
+- zusätzliche Benachrichtigung bei Böen über
+  - wird die eingestelle Böengeschwindigkeit überschritten, werden unmittelbar die Daten gesendet 
+  
 <br>Bedienung:<br>
 ![bedienung](Images/CCU_Bedienung.png)
 
