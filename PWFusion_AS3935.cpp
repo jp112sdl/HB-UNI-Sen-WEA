@@ -256,6 +256,13 @@ uint8_t PWF_AS3935::AS3935_SetMinStrikes(uint8_t min_strk)
   }
 }
 
+void PWF_AS3935::AS3935_SetIndoors(void)
+{
+  // AFE settings addres 0x00, bits 5:1 (10010, based on datasheet, pg 19, table 15)
+  // this is the default setting at power-up (AS3935 datasheet, table 9)
+  _sing_reg_write(0x00, 0x3E, 0x24);
+}
+
 void PWF_AS3935::AS3935_SetOutdoors(void)
 {
   // AFE settings addres 0x00, bits 5:1 (01110, based on datasheet, pg 19, table 15)
@@ -370,11 +377,16 @@ void PWF_AS3935::AS3935_PrintAllRegs(void)
 
 }
 
-void PWF_AS3935::AS3935_ManualCal(uint8_t capacitance, uint8_t disturber)
+void PWF_AS3935::AS3935_ManualCal(uint8_t capacitance, uint8_t disturber, uint8_t environment)
 {
   // start by powering up
   AS3935_PowerUp();
-  AS3935_SetOutdoors();
+
+  if (0 == environment) {
+    AS3935_SetOutdoors();
+  } else {
+    AS3935_SetIndoors();
+  }
 
   // disturber cal
   if (0 == disturber)							// disabled if 0
