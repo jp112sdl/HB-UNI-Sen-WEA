@@ -66,7 +66,7 @@ Hal hal;
 class WeatherEventMsg : public Message {
   public:
     void init(uint8_t msgcnt, int16_t temp, uint16_t airPressure, uint8_t humidity, uint32_t brightness, uint16_t raincounter, uint16_t windspeed, uint8_t winddir, uint8_t winddirrange, uint16_t gustspeed, uint8_t uvindex, uint8_t lightningcounter, uint8_t lightningdistance) {
-      Message::init(0x1a, msgcnt, 0x70, BCAST, (temp >> 8) & 0x7f, temp & 0xff);
+      Message::init(0x1a, msgcnt, 0x70, (msgcnt % 20 == 1) ? BIDI : BCAST, (temp >> 8) & 0x7f, temp & 0xff);
       pload[0] = (airPressure >> 8) & 0xff;
       pload[1] = airPressure & 0xff;
       pload[2] = humidity;
@@ -149,7 +149,7 @@ class SensorList1 : public RegList1<UReg1> {
     uint8_t ExtraMessageOnGustThreshold () const {
       return this->readRegister(0x06, 0);
     }
-   
+
     void defaults () {
       clear();
       AnemometerRadius(65);
@@ -275,11 +275,11 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       if (extraMessageOnGustThreshold > 0 && kmph > (extraMessageOnGustThreshold * 10)) {
         sendExtraMessageOnGustThreshold();
       }
-      
+
       if (kmph > gustspeed) {
         gustspeed = kmph;
       }
-      
+
       windspeed += kmph;
       _wind_isr_counter = 0;
     }
@@ -432,7 +432,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       DPRINT(F("*  - CAPACITOR         : ")); DDECLN(this->getList1().LightningDetectorCapacitor());
       DPRINT(F("*  - DISTURB.DETECTION : ")); DDECLN(this->getList1().LightningDetectorDisturberDetection());
 #ifndef NSENSORS
-      as3935.init(this->getList1().LightningDetectorCapacitor(), this->getList1().LightningDetectorDisturberDetection());
+      as3935.init(this->getList1().LightningDetectorCapacitor(), this->getList1().LightningDetectorDisturberDetection(), ::Sens_As3935<>::AS3935_ENVIRONMENT_OUTDOOR);
 #endif
     }
 
