@@ -1,4 +1,4 @@
-# HB-UNI-Sen-WEA
+# HB-UNI-Sen-WEA V1.2 _(benötigt [Addon Version V1.8](https://github.com/jp112sdl/JP-HB-Devices-addon/releases/latest) oder höher)_
 ## Selbstbau-Wetterstation (mit Netzteilbetrieb) für HomeMatic 
 ![complete](Images/4.png)
 
