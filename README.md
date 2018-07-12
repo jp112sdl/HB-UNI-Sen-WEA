@@ -38,6 +38,25 @@ Kugellager: [eBay-Link](https://www.ebay.de/itm/251368539841)
 
 _Hinweis: Die LED wird nicht mehr benutzt und braucht daher nicht verbaut zu werden._
 
+#### Abgleich Windrichtungsanzeiger
+
+Damit der Windrichtungsanzeiger ordnungsgemäß arbeitet, muss er abgeglichen werden.<br>
+Dabei müssen für alle 16 Positionen die Messwerte am analogen Eingang A2 ermittelt werden.<br>
+Die ermittelten 16 Werte müssen anschließend in das Array `HB-UNI-Sen-WEA.ino`[(Zeile 39)](https://github.com/jp112sdl/HB-UNI-Sen-WEA/blob/724c120519640d56590500ac2d985ecd0458dfc7/HB-UNI-Sen-WEA.ino#L39)<br>
+`const uint16_t WINDDIRS[] = { 806 , 371, ... ,  474 , 746 , 624 };`<br>
+eingetragen werden.<br>
+Der 1. Wert entspricht Norden, dann geht es in 22,5° Schritten im Uhrzeigersinn weiter.<br><br>
+
+Es empfiehlt sich, die Analog-Werte des Widerstandzirkels **vor** dem Flashen der `HB-UNI-Sen-WEA.ino` zu ermitteln.<br>
+Zu diesem Zweck flasht man den Sketch `WinddirResistorTest/WinddirResistorTest.ino` auf den Arduino Pro Mini.<br>
+Unmittelbar danach ist im seriellen Monitor (57600 Baud) der gemessene Analogwert zu sehen (`A2 = ...`). _Die Ausgabe von `idx = ` ist hier irrelevant._ <br>
+Diesen Wert notieren und den Windrichtungsmesser langsam im Uhrzeigersinn weiterbewegen, bis der nächste Wert zu erscheint.<br>
+Das ganze Prozedere sollte 1x ringsum 16 verschiedene Analogwerte ergeben.<br>
+Man kann diese nun ins Array [(Zeile 13)](https://github.com/jp112sdl/HB-UNI-Sen-WEA/blob/724c120519640d56590500ac2d985ecd0458dfc7/WinddirResistorTest/WinddirResistorTest.ino#L13) und den Sketch erneut flashen.<br>
+Zur Kontrolle sollte der Index des Arrays der Windrichtung angezeigt werden (`idx = `).<br><br>
+
+Sind alle Werte ermittelt, können sie nun ins Array des eigentliches Sketches `HB-UNI-Sen-WEA.ino`[(Zeile 39)](https://github.com/jp112sdl/HB-UNI-Sen-WEA/blob/724c120519640d56590500ac2d985ecd0458dfc7/HB-UNI-Sen-WEA.ino#L39), wie bereits oben erwähnt, eingetragen werden.<br>
+
 #### Addon für die CCU / RaspberryMatic
 
 **Um die Geräteunterstützung zu aktivieren, wird die aktuellste Version des [JP-HB-Devices Addon](https://github.com/jp112sdl/JP-HB-Devices-addon/releases/latest) benötigt!**
