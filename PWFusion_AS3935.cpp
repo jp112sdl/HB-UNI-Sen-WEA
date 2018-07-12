@@ -28,7 +28,8 @@
   jp112sdl 2018Jun21 modified for the use with AskSinPP (using SPI transactions)
 
 */
-
+//#define  NDEBUG
+#include <AskSinPP.h>
 #include "PWFusion_AS3935.h"
 #define _SPI_CLOCK_DIVIDER  SPI_CLOCK_DIV8
 #define _SPI_DATA_MODE      SPI_MODE1
@@ -130,21 +131,21 @@ void PWF_AS3935::AS3935_PowerDown(void)
 {
   // register 0x00, PWD bit: 0 (sets PWD)
   _sing_reg_write(0x00, 0x01, 0x01);
-  Serial.println(" powered down");
+  DPRINT(" powered down");
 }
 
 void PWF_AS3935::AS3935_DisturberEn(void)
 {
   // register 0x03, PWD bit: 5 (sets MASK_DIST)
   _sing_reg_write(0x03, 0x20, 0x00);
-  Serial.println("LD DIST DETECT EN");
+  DPRINTLN("LD DIST DETECT EN");
 }
 
 void PWF_AS3935::AS3935_DisturberDis(void)
 {
   // register 0x03, PWD bit: 5 (sets MASK_DIST)
   _sing_reg_write(0x03, 0x20, 0x20);
-  Serial.println("LD: DIST DETECT DIS");
+  DPRINTLN("LD: DIST DETECT DIS");
 }
 
 void PWF_AS3935::AS3935_SetIRQ_Output_Source(uint8_t irq_select)
@@ -184,8 +185,8 @@ void PWF_AS3935::AS3935_SetTuningCaps(uint8_t cap_val)
   {
     _sing_reg_write(0x08, 0x0F, (cap_val >> 3));	// set capacitance bits
   }
-  Serial.print("LD CAP SET TO 0x");
-  Serial.println((_sing_reg_read(0x08) & 0x0F));
+  DPRINT("LD CAP SET TO 0x");
+  DPRINTLN((_sing_reg_read(0x08) & 0x0F));
 }
 
 uint8_t PWF_AS3935::AS3935_GetInterruptSrc(void)
@@ -355,26 +356,25 @@ void PWF_AS3935::AS3935_SetLCO_FDIV(uint8_t fdiv)
 
 void PWF_AS3935::AS3935_PrintAllRegs(void)
 {
-  Serial.print("LD REGS [ ");
-  Serial.print(_sing_reg_read(0x00));
-  Serial.print(" | ");
-  Serial.print(_sing_reg_read(0x01));
-  Serial.print(" | ");
-  Serial.print(_sing_reg_read(0x02));
-  Serial.print(" | ");
-  Serial.print(_sing_reg_read(0x03));
-  Serial.print(" | ");
-  Serial.print(_sing_reg_read(0x04));
-  Serial.print(" | ");
-  Serial.print(_sing_reg_read(0x05));
-  Serial.print(" | ");
-  Serial.print(_sing_reg_read(0x06));
-  Serial.print(" | ");
-  Serial.print(_sing_reg_read(0x07));
-  Serial.print(" | ");
-  Serial.print(_sing_reg_read(0x08));
-  Serial.println(" ]");
-
+  DPRINT("LD REGS [ ");
+  DPRINT(_sing_reg_read(0x00));
+  DPRINT(" | ");
+  DPRINT(_sing_reg_read(0x01));
+  DPRINT(" | ");
+  DPRINT(_sing_reg_read(0x02));
+  DPRINT(" | ");
+  DPRINT(_sing_reg_read(0x03));
+  DPRINT(" | ");
+  DPRINT(_sing_reg_read(0x04));
+  DPRINT(" | ");
+  DPRINT(_sing_reg_read(0x05));
+  DPRINT(" | ");
+  DPRINT(_sing_reg_read(0x06));
+  DPRINT(" | ");
+  DPRINT(_sing_reg_read(0x07));
+  DPRINT(" | ");
+  DPRINT(_sing_reg_read(0x08));
+  DPRINTLN(" ]");
 }
 
 void PWF_AS3935::AS3935_ManualCal(uint8_t capacitance, uint8_t disturber, uint8_t environment)
@@ -404,7 +404,5 @@ void PWF_AS3935::AS3935_ManualCal(uint8_t capacitance, uint8_t disturber, uint8_
   // capacitance first... directly write value here
   AS3935_SetTuningCaps(capacitance);
 
-  Serial.println("LD CAL COMPLETE");
+  DPRINTLN("LD CAL COMPLETE");
 }
-// a nice function would be to read the last 'x' strike data values....
-
