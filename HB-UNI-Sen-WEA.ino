@@ -184,6 +184,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     uint8_t       idxoldwdir;
     uint8_t       winddirrange;
     bool          initComplete;
+    bool          israiningMsgSent;
     uint8_t       short_interval_measure_count;
 
     uint8_t       anemometerRadius;
@@ -202,7 +203,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     Sens_As3935<AS3935_IRQ_PIN, AS3935_CS_PIN> as3935;
 
   public:
-    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), wasraining(false), initComplete(false), windspeed(0), uvindex(0), short_interval_measure_count(0), wind_and_uv_measure(*this), lightning_and_raining_check(*this)  {}
+    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), israiningMsgSent(false), wasraining(false), initComplete(false), windspeed(0), uvindex(0), short_interval_measure_count(0), wind_and_uv_measure(*this), lightning_and_raining_check(*this)  {}
     virtual ~WeatherChannel () {}
 
     class WindSpeedAndUVMeasureAlarm : public Alarm {
@@ -264,6 +265,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 
     virtual void trigger (__attribute__ ((unused)) AlarmClock& clock) {
       processMessage(Message::BCAST);
+      if (!israining) israiningMsgSent = false;
     }
 
     void sendExtraMessage () {
@@ -293,8 +295,11 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 
     void measure_israining() {
       israining = (digitalRead(RAINDETECTOR_PIN) == PIN_LEVEL_ON_RAIN);
-      if (israining && wasraining != israining) {
-        sendExtraMessage();
+      if (wasraining != israining) {
+        if (!israiningMsgSent) {
+          sendExtraMessage();
+          israiningMsgSent = true;
+        }
       }
       wasraining = israining;
     }
