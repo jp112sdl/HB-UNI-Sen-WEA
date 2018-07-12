@@ -69,8 +69,8 @@ Hal hal;
 
 class WeatherEventMsg : public Message {
   public:
-    void init(uint8_t msgcnt, int16_t temp, uint16_t airPressure, uint8_t humidity, uint32_t brightness, bool israining, uint16_t raincounter,  uint16_t windspeed, uint8_t winddir, uint8_t winddirrange, uint16_t gustspeed, uint8_t uvindex, uint8_t lightningcounter, uint8_t lightningdistance) {
-      Message::init(0x1a, msgcnt, 0x70, (msgcnt % 20 == 1) ? BIDI : BCAST, (temp >> 8) & 0x7f, temp & 0xff);
+    void init(uint8_t msgtype, uint8_t msgcnt, int16_t temp, uint16_t airPressure, uint8_t humidity, uint32_t brightness, bool israining, uint16_t raincounter,  uint16_t windspeed, uint8_t winddir, uint8_t winddirrange, uint16_t gustspeed, uint8_t uvindex, uint8_t lightningcounter, uint8_t lightningdistance) {
+      Message::init(0x1a, msgcnt, 0x70, (msgcnt % 20 == 1 || msgtype == BIDI) ? BIDI : BCAST, (temp >> 8) & 0x7f, temp & 0xff);
       pload[0] = (airPressure >> 8) & 0xff;
       pload[1] = airPressure & 0xff;
       pload[2] = humidity;
@@ -234,7 +234,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
         }
     } lightning_and_raining_check;
 
-    void processMessage() {
+    void processMessage(uint8_t msgtype) {
       measure_winddirection();
       measure_thpb();
       measure_rain();
@@ -248,7 +248,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       DPRINT(F("WINDSPEED windspeed    : ")); DDECLN(windspeed);
       DPRINT(F("UV Index               : ")); DDECLN(uvindex);
 
-      msg.init(device().nextcount(), temperature, airPressure, humidity, brightness, israining, raincounter, windspeed, winddir, winddirrange, gustspeed, uvindex, lightningcounter, lightningdistance);
+      msg.init(msgtype, device().nextcount(), temperature, airPressure, humidity, brightness, israining, raincounter, windspeed, winddir, winddirrange, gustspeed, uvindex, lightningcounter, lightningdistance);
       device().sendPeerEvent(msg, *this);
 
       uint16_t updCycle = this->device().getList0().updIntervall();
@@ -263,13 +263,13 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     }
 
     virtual void trigger (__attribute__ ((unused)) AlarmClock& clock) {
-      processMessage();
+      processMessage(Message::BCAST);
     }
 
     void sendExtraMessage () {
       DPRINTLN("SENDING EXTRA MESSAGE");
       sysclock.cancel(*this);
-      processMessage();
+      processMessage(Message::BIDI);
     }
 
     void measure_windspeed() {
