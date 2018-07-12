@@ -29,8 +29,12 @@
 #define LED_PIN             4
 #define WINDCOUNTER_PIN     5
 #define RAINCOUNTER_PIN     6
+#define RAINDETECTOR_PIN    9
+#define PIN_LEVEL_ON_RAIN   LOW
 #define CONFIG_BUTTON_PIN   8
 #define WINDDIRECTION_PIN   A2
+#define AS3935_IRQ_PIN      3
+#define AS3935_CS_PIN       7
 
 #define BH1750_BRIGHTNESS_FACTOR   1.2 //you have to multiply BH1750 raw value by 1.2
 
@@ -52,7 +56,7 @@ const struct DeviceInfo PROGMEM devinfo = {
   {0xF1, 0xD0, 0x02},        // Device ID
   "JPWEA00002",           	 // Device Serial
   {0xF1, 0xD0},            	 // Device Model
-  0x11,                   	 // Firmware Version
+  0x12,                   	 // Firmware Version
   as::DeviceType::THSensor,  // Device Type
   {0x01, 0x01}             	 // Info Bytes
 };
@@ -65,7 +69,7 @@ Hal hal;
 
 class WeatherEventMsg : public Message {
   public:
-    void init(uint8_t msgcnt, int16_t temp, uint16_t airPressure, uint8_t humidity, uint32_t brightness, uint16_t raincounter, uint16_t windspeed, uint8_t winddir, uint8_t winddirrange, uint16_t gustspeed, uint8_t uvindex, uint8_t lightningcounter, uint8_t lightningdistance) {
+    void init(uint8_t msgcnt, int16_t temp, uint16_t airPressure, uint8_t humidity, uint32_t brightness, bool israining, uint16_t raincounter,  uint16_t windspeed, uint8_t winddir, uint8_t winddirrange, uint16_t gustspeed, uint8_t uvindex, uint8_t lightningcounter, uint8_t lightningdistance) {
       Message::init(0x1a, msgcnt, 0x70, (msgcnt % 20 == 1) ? BIDI : BCAST, (temp >> 8) & 0x7f, temp & 0xff);
       pload[0] = (airPressure >> 8) & 0xff;
       pload[1] = airPressure & 0xff;
@@ -73,7 +77,7 @@ class WeatherEventMsg : public Message {
       pload[3] = (brightness >>  16) & 0xff;
       pload[4] = (brightness >>  8) & 0xff;
       pload[5] = brightness & 0xff;
-      pload[6] = (raincounter >> 8) & 0xff;
+      pload[6] = ((raincounter >> 8) & 0xff) | (israining << 7);
       pload[7] = raincounter & 0xff;
       pload[8] = (windspeed >> 8) & 0xff | (winddirrange << 6);
       pload[9] = windspeed & 0xff;
@@ -167,6 +171,8 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     uint16_t      airPressure;
     uint8_t       humidity;
     uint32_t      brightness;
+    bool          israining;
+    bool          wasraining;
     uint16_t      raincounter;
     uint16_t      windspeed;
     uint16_t      gustspeed;
@@ -193,17 +199,17 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     MAX44009<>                  max44009;
 #endif
   public:
-    Sens_As3935<> as3935;
+    Sens_As3935<AS3935_IRQ_PIN, AS3935_CS_PIN> as3935;
 
   public:
-    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), initComplete(false), windspeed(0), uvindex(0), short_interval_measure_count(0), background_measure(*this), lightning_check(*this)  {}
+    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), wasraining(false), initComplete(false), windspeed(0), uvindex(0), short_interval_measure_count(0), wind_and_uv_measure(*this), lightning_and_raining_check(*this)  {}
     virtual ~WeatherChannel () {}
 
-    class WindSpeedMeasureAlarm : public Alarm {
+    class WindSpeedAndUVMeasureAlarm : public Alarm {
         WeatherChannel& chan;
       public:
-        WindSpeedMeasureAlarm (WeatherChannel& c) : Alarm (seconds2ticks(WINDSPEED_MEASUREINTERVAL_SECONDS)), chan(c) {}
-        virtual ~WindSpeedMeasureAlarm () {}
+        WindSpeedAndUVMeasureAlarm (WeatherChannel& c) : Alarm (seconds2ticks(WINDSPEED_MEASUREINTERVAL_SECONDS)), chan(c) {}
+        virtual ~WindSpeedAndUVMeasureAlarm () {}
 
         void trigger (__attribute__ ((unused)) AlarmClock& clock)  {
           chan.measure_windspeed();
@@ -212,20 +218,21 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
           clock.add(*this);
           chan.short_interval_measure_count++;
         }
-    } background_measure;
+    } wind_and_uv_measure;
 
-    class LightningReceiveAlarm : public Alarm {
+    class LightningAndRainingAlarm : public Alarm {
         WeatherChannel& chan;
       public:
-        LightningReceiveAlarm (WeatherChannel& c) : Alarm (seconds2ticks(1)), chan(c) {}
-        virtual ~LightningReceiveAlarm () {}
+        LightningAndRainingAlarm (WeatherChannel& c) : Alarm (seconds2ticks(1)), chan(c) {}
+        virtual ~LightningAndRainingAlarm () {}
 
         void trigger (__attribute__ ((unused)) AlarmClock& clock)  {
           chan.measure_lightning();
+          chan.measure_israining();
           tick = (seconds2ticks(1));
           clock.add(*this);
         }
-    } lightning_check;
+    } lightning_and_raining_check;
 
     void processMessage() {
       measure_winddirection();
@@ -241,7 +248,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       DPRINT(F("WINDSPEED windspeed    : ")); DDECLN(windspeed);
       DPRINT(F("UV Index               : ")); DDECLN(uvindex);
 
-      msg.init(device().nextcount(), temperature, airPressure, humidity, brightness, raincounter, windspeed, winddir, winddirrange, gustspeed, uvindex, lightningcounter, lightningdistance);
+      msg.init(device().nextcount(), temperature, airPressure, humidity, brightness, israining, raincounter, windspeed, winddir, winddirrange, gustspeed, uvindex, lightningcounter, lightningdistance);
       device().sendPeerEvent(msg, *this);
 
       uint16_t updCycle = this->device().getList0().updIntervall();
@@ -259,7 +266,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       processMessage();
     }
 
-    void sendExtraMessageOnGustThreshold () {
+    void sendExtraMessage () {
       DPRINTLN("SENDING EXTRA MESSAGE");
       sysclock.cancel(*this);
       processMessage();
@@ -273,7 +280,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       //  int kmph =  3.141593 * 2 * ((float)anemometerRadius / 100)   * ((float)_wind_isr_counter / (float)WINDSPEED_MEASUREINTERVAL_SECONDS)        * 3.6 * ((float)anemometerCalibrationFactor / 10);
       int kmph = ((226L * anemometerRadius * anemometerCalibrationFactor * _wind_isr_counter) / WINDSPEED_MEASUREINTERVAL_SECONDS) / 10000;
       if (extraMessageOnGustThreshold > 0 && kmph > (extraMessageOnGustThreshold * 10)) {
-        sendExtraMessageOnGustThreshold();
+        sendExtraMessage();
       }
 
       if (kmph > gustspeed) {
@@ -282,6 +289,14 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 
       windspeed += kmph;
       _wind_isr_counter = 0;
+    }
+
+    void measure_israining() {
+      israining = (digitalRead(RAINDETECTOR_PIN) == PIN_LEVEL_ON_RAIN);
+      if (israining && wasraining != israining) {
+        sendExtraMessage();
+      }
+      wasraining = israining;
     }
 
     void measure_uvindex() {
@@ -358,7 +373,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
             DDEC(lightning_dist_km);
             DPRINTLN(" km");
             lightningcounter++;
-            lightningdistance = lightning_dist_km;
+            lightningdistance = (lightning_dist_km + 1) / 3;
             break;
           case 2:
             DPRINTLN("LD DIST DETECTED");
@@ -415,8 +430,8 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       veml6070.init();
 #endif
       sysclock.add(*this);
-      sysclock.add(background_measure);
-      sysclock.add(lightning_check);
+      sysclock.add(wind_and_uv_measure);
+      sysclock.add(lightning_and_raining_check);
     }
 
     void configChanged() {
@@ -475,6 +490,7 @@ void setup () {
   pinMode(RAINCOUNTER_PIN, INPUT_PULLUP);
   pinMode(WINDCOUNTER_PIN, INPUT_PULLUP);
   pinMode(WINDDIRECTION_PIN, INPUT_PULLUP);
+  pinMode(RAINDETECTOR_PIN, INPUT_PULLUP);
 
   if ( digitalPinToInterrupt(RAINCOUNTER_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(RAINCOUNTER_PIN, raincounterISR, RISING); else attachInterrupt(digitalPinToInterrupt(RAINCOUNTER_PIN), raincounterISR, RISING);
   if ( digitalPinToInterrupt(WINDCOUNTER_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(WINDCOUNTER_PIN, windcounterISR, RISING); else attachInterrupt(digitalPinToInterrupt(WINDCOUNTER_PIN), windcounterISR, RISING);
