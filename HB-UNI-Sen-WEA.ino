@@ -366,25 +366,20 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
         switch (as3935.GetInterruptSrc()) {
           case 0:
             DPRINTLN("LD IRQ SRC NOT EXPECTED");
-            //Serial.println("LD IRQ SRC NOT EXPECTED");
             break;
           case 1:
             lightning_dist_km = as3935.LightningDistKm();
             DPRINT("LD LIGHTNING IN ");
             DDEC(lightning_dist_km);
             DPRINTLN(" km");
-            //Serial.println("LD LIGHTNING IN "+String(lightning_dist_km)+" km");
-
             lightningcounter++;
-            lightningdistance = lightning_dist_km;
+            lightningdistance = (lightning_dist_km + 1) / 3;
             break;
           case 2:
             DPRINTLN("LD DIST DETECTED");
-            //Serial.println("LD DIST DETECTED");
             break;
           case 3:
             DPRINTLN("LD NOISE HIGH");
-            //Serial.println("LD NOISE HIGH");
             break;
         }
         as3935.ResetLightninIsrCounter();
