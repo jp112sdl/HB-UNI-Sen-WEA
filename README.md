@@ -79,6 +79,8 @@ Einstellungen:<br>
 - zusätzliche Benachrichtigung bei Böen über
   - wird die eingestelle Böengeschwindigkeit überschritten, werden unmittelbar die Daten gesendet 
   
+_Wird über einen angeschlossenen Regensensor Regen erkannt, wird sofort dies sofort zur Zentrale gesendet!_
+  
 <br>Bedienung:<br>
 ![bedienung](Images/CCU_Bedienung.png)
 
