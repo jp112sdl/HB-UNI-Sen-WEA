@@ -40,9 +40,9 @@
 
 //                             N                      O                       S                         W
 //entspricht Windrichtung in ° 0 , 22.5, 45  , 67.5, 90  ,112.5, 135, 157.5, 180 , 202.5, 225 , 247.5, 270 , 292.5, 315 , 337.5
-const uint16_t WINDDIRS[] = { 806 , 371, 407, 999 , 228 ,  215 , 773 , 279,  304, 290  , 880, 523  , 570 ,  474 , 746 , 624 };
+const uint16_t WINDDIRS[] = { 33 , 71, 51 , 111, 93, 317,292 , 781, 544, 650, 180, 197, 183, 703, 40 , 41 };
 //(kleinste Werteabweichung / 2) - 1
-#define WINDDIR_TOLERANCE   5
+#define WINDDIR_TOLERANCE   3
 #define WINDSPEED_MEASUREINTERVAL_SECONDS 5
 
 #define PEERS_PER_CHANNEL   4
@@ -89,7 +89,7 @@ class WeatherEventMsg : public Message {
     }
 };
 
-DEFREGISTER(Reg0, MASTERID_REGS, 0x20, 0x21, 0x22, 0x23)
+DEFREGISTER(Reg0, MASTERID_REGS, DREG_TRANSMITTRYMAX, 0x20, 0x21, 0x22, 0x23)
 class SensorList0 : public RegList0<Reg0> {
   public:
     SensorList0(uint16_t addr) : RegList0<Reg0>(addr) {}
@@ -112,6 +112,7 @@ class SensorList0 : public RegList0<Reg0> {
       clear();
       updIntervall(60);
       height(0);
+      transmitDevTryMax(6);
     }
 };
 
