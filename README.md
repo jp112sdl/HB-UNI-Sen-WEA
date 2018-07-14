@@ -43,7 +43,7 @@ _Hinweis: Die LED wird nicht mehr benutzt und braucht daher nicht verbaut zu wer
 Damit der Windrichtungsanzeiger ordnungsgemäß arbeitet, muss er abgeglichen werden.<br>
 Dabei müssen für alle 16 Positionen die Messwerte am analogen Eingang A2 ermittelt werden.<br>
 Die ermittelten 16 Werte müssen anschließend in das Array `HB-UNI-Sen-WEA.ino`[(Zeile 39)](https://github.com/jp112sdl/HB-UNI-Sen-WEA/blob/724c120519640d56590500ac2d985ecd0458dfc7/HB-UNI-Sen-WEA.ino#L39)<br>
-`const uint16_t WINDDIRS[] = { 806 , 371, ... ,  474 , 746 , 624 };`<br>
+`const uint16_t WINDDIRS[] = { 33 , 71, 51 ..., 41 };`<br>
 eingetragen werden.<br>
 Der 1. Wert entspricht Norden, dann geht es in 22,5° Schritten im Uhrzeigersinn weiter.<br><br>
 
@@ -68,6 +68,8 @@ Einstellungen:<br>
   - Sendeintervall :)
 - Höhe über NN
   - Höhe der Station über dem Meeresspiegel (für die barometrische Luftdruckberechnung erforderlich)
+- Max. Sendeversuche
+  - _nur relevant für bidirektionale Meldungen (Regen, Böen)_
 - Anemometer Radius (cm)
   - Abstand zwischen Mitte Achse und Mitte Becher
 - Anemometer Calibration Factor
