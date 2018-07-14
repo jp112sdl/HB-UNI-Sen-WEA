@@ -1,17 +1,7 @@
-/*
-  S  = 533
-  SW = 418
-  W  = 234
-  NW = 131
-  N  = 310
-  NO = 151
-  O  = 579
-  SO = 754
-*/
 #include <EnableInterrupt.h>
 
-const uint16_t WINDDIRS[] = { 806 , 371, 407, 999 , 228 ,  215 , 773 , 279,  304, 290  , 880, 523  , 570 ,  474 , 746 , 624   };
-#define WINDDIR_TOLERANCE   5
+const uint16_t WINDDIRS[] = { 33 , 71, 51 , 111, 93, 317,292 , 781, 544, 650, 180, 197, 183, 703, 40 , 41 };
+#define WINDDIR_TOLERANCE   3
 #define WINDDIRECTION_PIN   A2
 #define WINDCOUNTER_PIN     5
 volatile int _windcounter = 0;
@@ -32,11 +22,11 @@ void loop() {
     uint8_t idxwdir = 0;
 
     uint16_t aVal = 0;
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 16; i++) {
       aVal += analogRead(WINDDIRECTION_PIN);
       delay(5);
     }
-    aVal = aVal / 10;
+    aVal = aVal / 16;
     for (int i = 0; i < sizeof(WINDDIRS) / sizeof(uint16_t); i++) {
       if (aVal < WINDDIRS[i] + WINDDIR_TOLERANCE && aVal > WINDDIRS[i] - WINDDIR_TOLERANCE) {
         winddir = i * 7.5;
