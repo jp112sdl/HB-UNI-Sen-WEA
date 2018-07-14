@@ -77,7 +77,8 @@ Einstellungen:<br>
 - Blitzdetektor Kapazität
   - Kapazitätsangabe der besten Abstimmung auf 500kHz
 - Blitzdetektor Störererkennung
-  - automatisches Unterdrücken von Störimpulsen
+  - nützlich zum Debuggen: DISTURBER werden seriell ausgegeben
+  - hat keine Auswirkung auf die Blitzerkennung
 - zusätzliche Benachrichtigung bei Böen über
   - wird die eingestelle Böengeschwindigkeit überschritten, werden unmittelbar die Daten gesendet 
   
