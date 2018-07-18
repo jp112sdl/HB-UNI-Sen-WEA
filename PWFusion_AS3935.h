@@ -12,7 +12,7 @@ class PWF_AS3935
   public:
     PWF_AS3935(uint8_t CSx, uint8_t IRQx);
     void AS3935_ManualCal(uint8_t capacitance, uint8_t disturber, uint8_t environment);
-    void AS3935_DefInit(void);
+    void AS3935_Reset(void);
     void AS3935_PowerUp(void);
     void AS3935_PowerDown(void);
     void AS3935_DisturberEn(void);
@@ -39,7 +39,6 @@ class PWF_AS3935
     int8_t _cs, _irq;
     uint8_t _sing_reg_read(uint8_t RegAdd);
     void _sing_reg_write(uint8_t RegAdd, uint8_t DataMask, uint8_t RegData);
-    void _AS3935_Reset(void);
     void _CalRCO(void);
 };
 

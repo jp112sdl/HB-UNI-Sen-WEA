@@ -86,12 +86,8 @@ void PWF_AS3935::_sing_reg_write(uint8_t RegAdd, uint8_t DataMask, uint8_t RegDa
   digitalWrite(_cs, HIGH);						// set pin high to end SPI session
 }
 
-void PWF_AS3935::AS3935_DefInit()
-{
-  _AS3935_Reset();			// reset registers to default
-}
 
-void PWF_AS3935::_AS3935_Reset()
+void PWF_AS3935::AS3935_Reset()
 {
   digitalWrite(_cs, LOW);        // begin transfer
   // run PRESET_DEFAULT Direct Command to set all registers in default state
@@ -125,13 +121,6 @@ void PWF_AS3935::AS3935_PowerUp(void)
   delay(2);
   _sing_reg_write(0x08, 0x20, 0x00);	// set DISP_SRCO to 0
 
-}
-
-void PWF_AS3935::AS3935_PowerDown(void)
-{
-  // register 0x00, PWD bit: 0 (sets PWD)
-  _sing_reg_write(0x00, 0x01, 0x01);
-  DPRINT(" powered down");
 }
 
 void PWF_AS3935::AS3935_DisturberEn(void)
@@ -185,8 +174,8 @@ void PWF_AS3935::AS3935_SetTuningCaps(uint8_t cap_val)
   {
     _sing_reg_write(0x08, 0x0F, (cap_val >> 3));	// set capacitance bits
   }
-  DPRINT("LD CAP SET TO 0x");
-  DPRINTLN((_sing_reg_read(0x08) & 0x0F));
+  //DPRINT("LD CAP SET TO 0x");
+  //DPRINTLN((_sing_reg_read(0x08) & 0x0F));
 }
 
 uint8_t PWF_AS3935::AS3935_GetInterruptSrc(void)
@@ -379,9 +368,15 @@ void PWF_AS3935::AS3935_PrintAllRegs(void)
 
 void PWF_AS3935::AS3935_ManualCal(uint8_t capacitance, uint8_t disturber, uint8_t environment)
 {
-  // start by powering up
-  AS3935_PowerUp();
+  AS3935_SetIRQ_Output_Source(0);
 
+  delay(2);
+
+  AS3935_SetTuningCaps(capacitance);
+  delay(3);
+  
+  AS3935_PowerUp();
+  
   if (0 == environment) {
     AS3935_SetOutdoors();
   } else {
@@ -389,20 +384,11 @@ void PWF_AS3935::AS3935_ManualCal(uint8_t capacitance, uint8_t disturber, uint8_
   }
 
   // disturber cal
-  if (0 == disturber)							// disabled if 0
-  {
+  if (0 == disturber) {
     AS3935_DisturberDis();
-  }
-  else										// enabled if anything but 0
-  {
+  } else {
     AS3935_DisturberEn();
   }
-
-  AS3935_SetIRQ_Output_Source(0);
-
-  delay(500);
-  // capacitance first... directly write value here
-  AS3935_SetTuningCaps(capacitance);
 
   DPRINTLN("LD CAL COMPLETE");
 }
