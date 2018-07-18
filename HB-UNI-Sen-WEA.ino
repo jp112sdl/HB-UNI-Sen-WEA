@@ -40,7 +40,7 @@
 
 //                             N                      O                       S                         W
 //entspricht Windrichtung in ° 0 , 22.5, 45  , 67.5, 90  ,112.5, 135, 157.5, 180 , 202.5, 225 , 247.5, 270 , 292.5, 315 , 337.5
-const uint16_t WINDDIRS[] = { 33 , 71, 51 , 111, 93, 317,292 , 781, 544, 650, 180, 197, 183, 703, 40 , 41 };
+const uint16_t WINDDIRS[] = { 33 , 71, 51 , 111, 93, 317, 292 , 781, 544, 650, 180, 197, 183, 703, 40 , 41 };
 //(kleinste Werteabweichung / 2) - 1
 #define WINDDIR_TOLERANCE   3
 #define WINDSPEED_MEASUREINTERVAL_SECONDS 5
@@ -185,6 +185,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     uint8_t       idxoldwdir;
     uint8_t       winddirrange;
     bool          initComplete;
+    bool          initLightningDetectorDone;
     bool          israiningMsgSent;
     uint8_t       short_interval_measure_count;
 
@@ -204,7 +205,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     Sens_As3935<AS3935_IRQ_PIN, AS3935_CS_PIN> as3935;
 
   public:
-    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), israiningMsgSent(false), wasraining(false), initComplete(false), windspeed(0), uvindex(0), short_interval_measure_count(0), wind_and_uv_measure(*this), lightning_and_raining_check(*this)  {}
+    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), initLightningDetectorDone(false), israiningMsgSent(false), wasraining(false), initComplete(false), windspeed(0), uvindex(0), short_interval_measure_count(0), wind_and_uv_measure(*this), lightning_and_raining_check(*this)  {}
     virtual ~WeatherChannel () {}
 
     class WindSpeedAndUVMeasureAlarm : public Alarm {
@@ -367,28 +368,35 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       lightningcounter = random(255);
       lightningdistance = random(15);
 #else
-      uint8_t lightning_dist_km = 0;
-      if (as3935.LightningIsrCounter() > 0) {
-        switch (as3935.GetInterruptSrc()) {
-          case 0:
-            DPRINTLN("LD IRQ SRC NOT EXPECTED");
-            break;
-          case 1:
-            lightning_dist_km = as3935.LightningDistKm();
-            DPRINT("LD LIGHTNING IN ");
-            DDEC(lightning_dist_km);
-            DPRINTLN(" km");
-            lightningcounter++;
-            lightningdistance = (lightning_dist_km + 1) / 3;
-            break;
-          case 2:
-            DPRINTLN("LD DIST DETECTED");
-            break;
-          case 3:
-            DPRINTLN("LD NOISE HIGH");
-            break;
+      if (!initLightningDetectorDone) {
+        as3935.init(this->getList1().LightningDetectorCapacitor(), this->getList1().LightningDetectorDisturberDetection(), ::Sens_As3935<>::AS3935_ENVIRONMENT_OUTDOOR);
+        initLightningDetectorDone = true;
+      } else {
+        uint8_t lightning_dist_km = 0;
+        if (as3935.LightningIsrCounter() > 0) {
+          switch (as3935.GetInterruptSrc()) {
+            case 0:
+              DPRINTLN("LD IRQ SRC NOT EXPECTED");
+              break;
+            case 1:
+              lightning_dist_km = as3935.LightningDistKm();
+              DPRINT("LD LIGHTNING IN ");
+              DDEC(lightning_dist_km);
+              DPRINTLN(" km");
+              lightningcounter++;
+              // Wenn Zähler überläuft (255 + 1), dann 1 statt 0
+              if (lightningcounter == 0) lightningcounter = 1;
+              lightningdistance = (lightning_dist_km + 1) / 3;
+              break;
+            case 2:
+              DPRINTLN("LD DIST DETECTED");
+              break;
+            case 3:
+              DPRINTLN("LD NOISE HIGH");
+              break;
+          }
+          as3935.ResetLightninIsrCounter();
         }
-        as3935.ResetLightninIsrCounter();
       }
 #endif
     }
@@ -445,16 +453,14 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       anemometerCalibrationFactor = this->getList1().AnemometerCalibrationFactor();
       extraMessageOnGustThreshold = this->getList1().ExtraMessageOnGustThreshold();
       DPRINTLN("* Config changed       : List1");
-      DPRINTLN(F("* ANEMOMETER           : "));
-      DPRINT(F("*  - RADIUS            : ")); DDECLN(anemometerRadius);
-      DPRINT(F("*  - CALIBRATIONFACTOR : ")); DDECLN(anemometerCalibrationFactor);
-      DPRINT(F("*  - GUST MSG THRESHOLD: ")); DDECLN(extraMessageOnGustThreshold);
-      DPRINTLN(F("* LIGHTNINGDETECTOR    : "));
-      DPRINT(F("*  - CAPACITOR         : ")); DDECLN(this->getList1().LightningDetectorCapacitor());
-      DPRINT(F("*  - DISTURB.DETECTION : ")); DDECLN(this->getList1().LightningDetectorDisturberDetection());
-#ifndef NSENSORS
-      as3935.init(this->getList1().LightningDetectorCapacitor(), this->getList1().LightningDetectorDisturberDetection(), ::Sens_As3935<>::AS3935_ENVIRONMENT_OUTDOOR);
-#endif
+      //DPRINTLN(F("* ANEMOMETER           : "));
+      //DPRINT(F("*  - RADIUS            : ")); DDECLN(anemometerRadius);
+      //DPRINT(F("*  - CALIBRATIONFACTOR : ")); DDECLN(anemometerCalibrationFactor);
+      //DPRINT(F("*  - GUST MSG THRESHOLD: ")); DDECLN(extraMessageOnGustThreshold);
+      //DPRINTLN(F("* LIGHTNINGDETECTOR    : "));
+      //DPRINT(F("*  - CAPACITOR         : ")); DDECLN(this->getList1().LightningDetectorCapacitor());
+      //DPRINT(F("*  - DISTURB.DETECTION : ")); DDECLN(this->getList1().LightningDetectorDisturberDetection());
+      initLightningDetectorDone = false;
     }
 
     uint8_t status () const {
@@ -475,8 +481,9 @@ class SensChannelDevice : public MultiChannelDevice<Hal, WeatherChannel, 1, Sens
     virtual void configChanged () {
       TSDevice::configChanged();
       DPRINTLN("* Config Changed       : List0");
-      DPRINT(F("* SENDEINTERVALL       : ")); DDECLN(this->getList0().updIntervall());
-      DPRINT(F("* ALTITUDE             : ")); DDECLN(this->getList0().height());
+      //DPRINT(F("* SENDEINTERVALL       : ")); DDECLN(this->getList0().updIntervall());
+      //DPRINT(F("* ALTITUDE             : ")); DDECLN(this->getList0().height());
+      //DPRINT(F("* TRANSMITTRYMAX       : ")); DDECLN(this->getList0().transmitDevTryMax());
     }
 };
 
