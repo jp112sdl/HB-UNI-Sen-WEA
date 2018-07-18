@@ -30,7 +30,7 @@ public:
 
   void init (uint8_t _AS3935_CAPACITANCE, uint8_t _AS3935_DIST_EN, uint8_t _AS3935_ENVIRONMENT) {
     if ( digitalPinToInterrupt(_AS3935_IRQ_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(_AS3935_IRQ_PIN, lightningISR, RISING); else attachInterrupt(digitalPinToInterrupt(_AS3935_IRQ_PIN), lightningISR, RISING);
-    _lightningDetector.AS3935_DefInit();
+    _lightningDetector.AS3935_Reset();
     _lightningDetector.AS3935_ManualCal(_AS3935_CAPACITANCE, _AS3935_DIST_EN, _AS3935_ENVIRONMENT);
     _lightningDetector.AS3935_PrintAllRegs();
     DPRINTLN("AS3935 Init done.");
