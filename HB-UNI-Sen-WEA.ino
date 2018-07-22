@@ -26,12 +26,9 @@
 #include "Sensors/Sens_Bme280.h"
 #include "Sensors/Sens_As3935.h"
 
-#define WINDCOUNTER_PIN      5
-#define RAINCOUNTER_PIN      6
 
-
-//bei Verwendung der Regensensorplatine von stall.biz (https://www.stall.biz/produkt/regenmelder-sensorplatine)
 #define USE_RAINDETECTOR_STALLBIZ
+//bei Verwendung der Regensensorplatine von stall.biz (https://www.stall.biz/produkt/regenmelder-sensorplatine)
 #define RAINDETECTOR_STALLBIZ_SENS_PIN       A3
 #define RAINDETECTOR_STALLBIZ_CRG_PIN        4
 #define RAINDETECTOR_STALLBIZ_HEAT_PIN       9
@@ -44,8 +41,11 @@
 
 #define RAINDETECTOR_CHECK_INTERVAL 5
 
-#define CONFIG_BUTTON_PIN    8
 #define WINDDIRECTION_PIN    A2
+#define WINDCOUNTER_PIN      5
+#define RAINCOUNTER_PIN      6
+
+#define CONFIG_BUTTON_PIN    8
 #define AS3935_IRQ_PIN       3
 #define AS3935_CS_PIN        7
 
