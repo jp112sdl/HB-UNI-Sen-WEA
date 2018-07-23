@@ -448,7 +448,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 
     void measure_lightning() {
 #ifdef NSENSORS
-      lightningcounter = random(255);
+      lightningcounter++;
       lightningdistance = random(15);
 #else
       if (!initLightningDetectorDone) {
