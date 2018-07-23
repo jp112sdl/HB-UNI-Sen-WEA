@@ -16,7 +16,6 @@
 #include <EnableInterrupt.h>
 #include <SPI.h>  // after including SPI Library - we can use LibSPI class
 #include <AskSinPP.h>
-#include <LowPower.h>
 #include <Register.h>
 
 #include <MultiChannelDevice.h>
