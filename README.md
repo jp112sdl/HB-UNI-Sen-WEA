@@ -1,4 +1,4 @@
-# HB-UNI-Sen-WEA V1.2 _(benötigt [Addon Version V1.8](https://github.com/jp112sdl/JP-HB-Devices-addon/releases/latest) oder höher)_
+# HB-UNI-Sen-WEA V1.2 _(benötigt [Addon Version V1.8a](https://github.com/jp112sdl/JP-HB-Devices-addon/releases/latest) oder höher)_
 ## Selbstbau-Wetterstation (mit Netzteilbetrieb) für HomeMatic 
 ![complete](Images/4.png)
 
@@ -19,7 +19,7 @@
   - _[BH1750](https://www.ebay.de/itm/162351871499) (nicht mehr empfohlen - der MAX44009 hat einen größeren Messbereich)_
   - [MAX44009](https://www.ebay.de/itm/162727018038)
   - [AS3935](https://de.aliexpress.com/item/New-AS3935-lightning-sensor-Lightning-lightning-lightning-detection-storm-distance/32830108558.html)
-  - ein paar Widerstände (Werte bitte dem Schaltplan entnehmen) und einen Taster
+  - ein paar Widerstände und Kondensatoren (Werte bitte dem Schaltplan entnehmen) sowie einen Taster
 
 
 #### Gehäuse-/Konstrukt-Teile
