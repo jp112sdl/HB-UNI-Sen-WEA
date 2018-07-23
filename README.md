@@ -19,18 +19,19 @@
   - _[BH1750](https://www.ebay.de/itm/162351871499) (nicht mehr empfohlen - der MAX44009 hat einen größeren Messbereich)_
   - [MAX44009](https://www.ebay.de/itm/162727018038)
   - [AS3935](https://de.aliexpress.com/item/New-AS3935-lightning-sensor-Lightning-lightning-lightning-detection-storm-distance/32830108558.html)
+  - [Regendetektorplatine von Eugen Stall](https://www.stall.biz/produkt/regenmelder-sensorplatine)
   - ein paar Widerstände und Kondensatoren (Werte bitte dem Schaltplan entnehmen) sowie einen Taster
 
 
 #### Gehäuse-/Konstrukt-Teile
-Rahmen + Anemometer + Windrichtungszeiger + Regenmengenmesser<br>
+- Rahmen + Anemometer + Windrichtungszeiger + Regenmengenmesser<br>
 https://www.thingiverse.com/thing:2849562
 
-Halterung für die Platine + Sensoren:<br>
+- Halterung für die Platine + Sensoren:<br>
 https://www.thingiverse.com/thing:2821592
 
-Neodym-Magenete: [eBay-Link](https://www.ebay.de/itm/180935986047) <br>
-Kugellager: [eBay-Link](https://www.ebay.de/itm/251368539841)
+- Neodym-Magenete: [eBay-Link](https://www.ebay.de/itm/180935986047) <br>
+- Kugellager: [eBay-Link](https://www.ebay.de/itm/251368539841)
 
 #### Schaltplan
 
