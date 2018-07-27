@@ -5,18 +5,13 @@
 // 2018-05-11 Tom Major (Creative Commons)
 // 2018-05-21 jp112sdl (Creative Commons)
 //- -----------------------------------------------------------------------------------------------------------------------
-// #define USE_OTA_BOOTLOADER
-// #define NDEBUG
+// #define NDEBUG   // disable all serial debuf messages
 // #define NSENSORS // if defined, only fake values are used
-
-#define USE_MAX44009
-//#define USE_BH1750
 
 #define  EI_NOTEXTERNAL
 #include <EnableInterrupt.h>
 #include <SPI.h>  // after including SPI Library - we can use LibSPI class
 #include <AskSinPP.h>
-#include <LowPower.h>
 #include <Register.h>
 
 #include <MultiChannelDevice.h>
@@ -26,31 +21,59 @@
 #include "Sensors/Sens_Bme280.h"
 #include "Sensors/Sens_As3935.h"
 
-#define LED_PIN             4
-#define WINDCOUNTER_PIN     5
-#define RAINCOUNTER_PIN     6
-#define RAINDETECTOR_PIN    9
-#define PIN_LEVEL_ON_RAIN   LOW
-#define CONFIG_BUTTON_PIN   8
-#define WINDDIRECTION_PIN   A2
-#define AS3935_IRQ_PIN      3
-#define AS3935_CS_PIN       7
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#define CONFIG_BUTTON_PIN                    8     // Anlerntaster-Pin
 
-#define BH1750_BRIGHTNESS_FACTOR   1.2 //you have to multiply BH1750 raw value by 1.2
+///////// verwendeter Lichtsensor
+#define USE_MAX44009
+//#define USE_BH1750
+/////////////////////////////////////////////////////////////////////
+
+////////// REGENDETEKTOR
+#define USE_RAINDETECTOR_STALLBIZ
+//bei Verwendung der Regensensorplatine von stall.biz (https://www.stall.biz/produkt/regenmelder-sensorplatine)
+#define RAINDETECTOR_STALLBIZ_SENS_PIN       A3   // Pin, an dem der Kondensator angeschlossen ist (hier wird der analoge Wert für die Regenerkennung ermittelt)
+#define RAINDETECTOR_STALLBIZ_CRG_PIN        4    // Pin, an dem der Widerstand für die Kondensatoraufladung angeschlossen is
+#define RAINDETECTOR_STALLBIZ_HEAT_PIN       9    // Pin, an dem der Transistor für die Heizung angeschlossen ist
+#define RAINDETECTOR_STALLBIZ_RAIN_THRESHOLD 780  // analoger Messwert, ab dem 'Regen erkannt' angezeigt wird 
+#define RAINDETECTOR_STALLBIZ_HEAT_THRESHOLD 300  // analoger Messwert, ab dem die Heizung aktiviert wird
+
+//bei Verwendung eines Regensensors mit H/L-Pegel Ausgang
+#define RAINDETECTOR_PIN                     9    // Pin, an dem der Regendetektor angeschlossen ist
+#define RAINDETECTOR_PIN_LEVEL_ON_RAIN       LOW  // Pegel, wenn Regen erkannt wird
+
+#define RAINDETECTOR_CHECK_INTERVAL          5     // alle x Sekunden auf Regen prüfen
+/////////////////////////////////////////////////////////////////////
+
+#define WINDSPEEDCOUNTER_PIN                 5     // Anemometer
+#define RAINQUANTITYCOUNTER_PIN              6     // Regenmengenmesser
+
+#define AS3935_IRQ_PIN                       3     // IRQ Pin des Blitzdetektors
+#define AS3935_CS_PIN                        7     // CS Pin des Blitzdetektors
 
 //                             N                      O                       S                         W
 //entspricht Windrichtung in ° 0 , 22.5, 45  , 67.5, 90  ,112.5, 135, 157.5, 180 , 202.5, 225 , 247.5, 270 , 292.5, 315 , 337.5
 const uint16_t WINDDIRS[] = { 33 , 71, 51 , 111, 93, 317, 292 , 781, 544, 650, 180, 197, 183, 703, 40 , 41 };
 //(kleinste Werteabweichung / 2) - 1
-#define WINDDIR_TOLERANCE   3
-#define WINDSPEED_MEASUREINTERVAL_SECONDS 5
+#define WINDDIR_TOLERANCE                    3     // Messtoleranz
+#define WINDDIRECTION_PIN                    A2    // Pin, an dem der Windrichtungsanzeiger angeschlossen ist
 
-#define PEERS_PER_CHANNEL   4
+
+#define WINDSPEED_MEASUREINTERVAL_SECONDS    5     // Messintervall Wind / Böen
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+//some static definitions
+#define WINDSPEED_MAX              16383
+#define RAINCOUNTER_MAX            32767
+#define BH1750_BRIGHTNESS_FACTOR   1.2    //you have to multiply BH1750 raw value by 1.2 (datasheet)
+#define PEERS_PER_CHANNEL          4
 
 using namespace as;
 
-volatile uint32_t _rain_isr_counter = 0;
+volatile uint32_t _rainquantity_isr_counter = 0;
 volatile uint16_t _wind_isr_counter = 0;
+
 
 const struct DeviceInfo PROGMEM devinfo = {
   {0xF1, 0xD0, 0x02},        // Device ID
@@ -63,14 +86,12 @@ const struct DeviceInfo PROGMEM devinfo = {
 
 // Configure the used hardware
 typedef AskSin<NoLed, NoBattery, Radio<LibSPI<10>, 2>> Hal;
-//typedef AskSin<StatusLed<LED_PIN>, NoBattery, Radio<LibSPI<10>, 2>> Hal;
-
 Hal hal;
 
 class WeatherEventMsg : public Message {
   public:
-    void init(uint8_t msgtype, uint8_t msgcnt, int16_t temp, uint16_t airPressure, uint8_t humidity, uint32_t brightness, bool israining, uint16_t raincounter,  uint16_t windspeed, uint8_t winddir, uint8_t winddirrange, uint16_t gustspeed, uint8_t uvindex, uint8_t lightningcounter, uint8_t lightningdistance) {
-      Message::init(0x1a, msgcnt, 0x70, (msgcnt % 20 == 1 || msgtype == BIDI) ? BIDI : BCAST, (temp >> 8) & 0x7f, temp & 0xff);
+    void init(uint8_t msgcnt, int16_t temp, uint16_t airPressure, uint8_t humidity, uint32_t brightness, bool israining, uint16_t raincounter,  uint16_t windspeed, uint8_t winddir, uint8_t winddirrange, uint16_t gustspeed, uint8_t uvindex, uint8_t lightningcounter, uint8_t lightningdistance) {
+      Message::init(0x1a, msgcnt, 0x70, BIDI | RPTEN, (temp >> 8) & 0x7f, temp & 0xff);
       pload[0] = (airPressure >> 8) & 0xff;
       pload[1] = airPressure & 0xff;
       pload[2] = humidity;
@@ -116,10 +137,10 @@ class SensorList0 : public RegList0<Reg0> {
     }
 };
 
-DEFREGISTER(UReg1, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06)
-class SensorList1 : public RegList1<UReg1> {
+DEFREGISTER(Reg1, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08)
+class SensorList1 : public RegList1<Reg1> {
   public:
-    SensorList1 (uint16_t addr) : RegList1<UReg1>(addr) {}
+    SensorList1 (uint16_t addr) : RegList1<Reg1>(addr) {}
     bool AnemometerRadius (uint8_t value) const {
       return this->writeRegister(0x01, value & 0xff);
     }
@@ -155,6 +176,20 @@ class SensorList1 : public RegList1<UReg1> {
       return this->readRegister(0x06, 0);
     }
 
+    bool STORM_UPPER_THRESHOLD (uint8_t value) const {
+      return this->writeRegister(0x07, value & 0xff);
+    }
+    uint8_t STORM_UPPER_THRESHOLD () const {
+      return this->readRegister(0x07, 0);
+    }
+
+    bool STORM_LOWER_THRESHOLD (uint8_t value) const {
+      return this->writeRegister(0x08, value & 0xff);
+    }
+    uint8_t STORM_LOWER_THRESHOLD () const {
+      return this->readRegister(0x08, 0);
+    }
+
     void defaults () {
       clear();
       AnemometerRadius(65);
@@ -162,6 +197,8 @@ class SensorList1 : public RegList1<UReg1> {
       LightningDetectorCapacitor(80);
       LightningDetectorDisturberDetection(true);
       ExtraMessageOnGustThreshold(0);
+      STORM_UPPER_THRESHOLD(0);
+      STORM_LOWER_THRESHOLD(0);
     }
 };
 
@@ -184,10 +221,13 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     uint8_t       winddir;
     uint8_t       idxoldwdir;
     uint8_t       winddirrange;
+
     bool          initComplete;
     bool          initLightningDetectorDone;
-    bool          israiningMsgSent;
     uint8_t       short_interval_measure_count;
+    uint8_t       israining_alarm_count;
+    uint8_t       STORM_PEER_VAL;
+    uint8_t       STORM_PEER_VAL_Last;
 
     uint8_t       anemometerRadius;
     uint8_t       anemometerCalibrationFactor;
@@ -205,7 +245,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     Sens_As3935<AS3935_IRQ_PIN, AS3935_CS_PIN> as3935;
 
   public:
-    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), initLightningDetectorDone(false), israiningMsgSent(false), wasraining(false), initComplete(false), windspeed(0), uvindex(0), short_interval_measure_count(0), wind_and_uv_measure(*this), lightning_and_raining_check(*this)  {}
+    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), STORM_PEER_VAL(0), STORM_PEER_VAL_Last(0), israining_alarm_count(0), initLightningDetectorDone(false), wasraining(false), initComplete(false), windspeed(0), uvindex(0), short_interval_measure_count(0), wind_and_uv_measure(*this), lightning_and_raining_check(*this)  {}
     virtual ~WeatherChannel () {}
 
     class WindSpeedAndUVMeasureAlarm : public Alarm {
@@ -240,20 +280,24 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     void processMessage(uint8_t msgtype) {
       measure_winddirection();
       measure_thpb();
-      measure_rain();
+      measure_rainquantity();
 
       if (initComplete) {
         windspeed = windspeed / short_interval_measure_count;
+        if (windspeed > WINDSPEED_MAX) windspeed = WINDSPEED_MAX;
         uvindex = uvindex / short_interval_measure_count;
       }
 
-      DPRINT(F("GUSTSPEED gustspeed    : ")); DDECLN(gustspeed);
-      DPRINT(F("WINDSPEED windspeed    : ")); DDECLN(windspeed);
-      DPRINT(F("UV Index               : ")); DDECLN(uvindex);
-
-      msg.init(msgtype, device().nextcount(), temperature, airPressure, humidity, brightness, israining, raincounter, windspeed, winddir, winddirrange, gustspeed, uvindex, lightningcounter, lightningdistance);
-      device().sendPeerEvent(msg, *this);
-
+      //DPRINT(F("GUSTSPEED     : ")); DDECLN(gustspeed);
+      //DPRINT(F("WINDSPEED     : ")); DDECLN(windspeed);
+      //DPRINT(F("UV Index      : ")); DDECLN(uvindex);
+      uint8_t msgcnt = device().nextcount();
+      msg.init(msgcnt, temperature, airPressure, humidity, brightness, israining, raincounter, windspeed, winddir, winddirrange, gustspeed, uvindex, lightningcounter, lightningdistance);
+      if (msgtype == Message::BIDI || msgcnt % 20 == 1) {
+        device().sendPeerEvent(msg, *this);
+      } else {
+        device().broadcastPeerEvent(msg, *this);
+      }
       uint16_t updCycle = this->device().getList0().updIntervall();
       tick = seconds2ticks(updCycle);
 
@@ -267,11 +311,10 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 
     virtual void trigger (__attribute__ ((unused)) AlarmClock& clock) {
       processMessage(Message::BCAST);
-      if (!israining) israiningMsgSent = false;
     }
 
-    void sendExtraMessage () {
-      DPRINTLN("SENDING EXTRA MESSAGE");
+    void sendExtraMessage (uint8_t t) {
+      DPRINT(F("SENDING EXTRA MESSAGE ")); DDECLN(t);
       sysclock.cancel(*this);
       processMessage(Message::BIDI);
     }
@@ -284,7 +327,25 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       //  int kmph =  3.141593 * 2 * ((float)anemometerRadius / 100)   * ((float)_wind_isr_counter / (float)WINDSPEED_MEASUREINTERVAL_SECONDS)        * 3.6 * ((float)anemometerCalibrationFactor / 10);
       int kmph = ((226L * anemometerRadius * anemometerCalibrationFactor * _wind_isr_counter) / WINDSPEED_MEASUREINTERVAL_SECONDS) / 10000;
       if (extraMessageOnGustThreshold > 0 && kmph > (extraMessageOnGustThreshold * 10)) {
-        sendExtraMessage();
+        sendExtraMessage(0);
+      }
+      //DPRINT(F("WIND kmph     : ")); DDECLN(kmph);
+      if (peers() > 0) {
+        if (this->getList1().STORM_UPPER_THRESHOLD() > 0) {
+          if (kmph >= this->getList1().STORM_UPPER_THRESHOLD() || kmph <= this->getList1().STORM_LOWER_THRESHOLD()) {
+            static uint8_t evcnt = 0;
+            SensorEventMsg& rmsg = (SensorEventMsg&)device().message();
+
+            if (kmph >= this->getList1().STORM_UPPER_THRESHOLD()) STORM_PEER_VAL = 200;
+            if (kmph <= this->getList1().STORM_LOWER_THRESHOLD()) STORM_PEER_VAL = 100;
+
+            if (STORM_PEER_VAL != STORM_PEER_VAL_Last) {
+              rmsg.init(device().nextcount(), number(), evcnt++, STORM_PEER_VAL, false , false);
+              device().sendPeerEvent(rmsg, *this);
+            }
+            STORM_PEER_VAL_Last = STORM_PEER_VAL;
+          }
+        }
       }
 
       if (kmph > gustspeed) {
@@ -296,14 +357,49 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     }
 
     void measure_israining() {
-      israining = (digitalRead(RAINDETECTOR_PIN) == PIN_LEVEL_ON_RAIN);
-      if (wasraining != israining) {
-        if (!israiningMsgSent) {
-          sendExtraMessage();
-          israiningMsgSent = true;
+      if (initComplete) {
+        if (israining_alarm_count >= RAINDETECTOR_CHECK_INTERVAL) {
+#ifdef USE_RAINDETECTOR_STALLBIZ
+          digitalWrite(RAINDETECTOR_STALLBIZ_CRG_PIN, HIGH);
+          _delay_ms(2);
+          digitalWrite(RAINDETECTOR_STALLBIZ_CRG_PIN, LOW);
+          int rdVal = analogRead(RAINDETECTOR_STALLBIZ_SENS_PIN);
+          DPRINT(F("RD aVal       : ")); DDECLN(rdVal);
+
+          israining = (rdVal > RAINDETECTOR_STALLBIZ_RAIN_THRESHOLD);
+          // Heizung einschalten, wenn Messwert > RAINDETECTOR_STALLBIZ_HEAT_THRESHOLD
+          bool mustheat = (rdVal > RAINDETECTOR_STALLBIZ_HEAT_THRESHOLD);
+          // Taubildung bei +/- 2°C Temperatur um den Taupunkt
+          bool dewfall = (abs(bme280.temperature() - bme280.dewPoint()) < 20);
+          // Heizung schalten
+          raindetector_heater(mustheat || dewfall);
+#else
+          israining = (digitalRead(RAINDETECTOR_PIN) == RAINDETECTOR_PIN_LEVEL_ON_RAIN);
+#endif
+
+          DPRINT(F("RD israining  : ")); DDECLN(israining);
+
+          if (wasraining != israining) {
+            sendExtraMessage(1);
+            if (peers() > 0) {
+              static uint8_t evcnt = 0;
+              SensorEventMsg& rmsg = (SensorEventMsg&)device().message();
+              rmsg.init(device().nextcount(), number(), evcnt++, israining ? 200 : 0, true , false);
+              device().sendPeerEvent(rmsg, *this);
+            }
+          }
+          wasraining = israining;
+          israining_alarm_count = 0;
         }
+        israining_alarm_count++;
       }
-      wasraining = israining;
+    }
+
+    void raindetector_heater(bool ON) {
+#ifdef USE_RAINDETECTOR_STALLBIZ
+      DPRINT(F("RD HEAT       : ")); DDECLN(ON);
+      digitalWrite(RAINDETECTOR_STALLBIZ_HEAT_PIN, ON);
+#endif
     }
 
     void measure_uvindex() {
@@ -311,6 +407,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       uvindex += random(11);
 #else
       veml6070.measure();
+      //DPRINT(F("UV readUV     : ")); DDECLN(veml6070.UVValue());
       uvindex += veml6070.UVIndex();
 #endif
     }
@@ -336,7 +433,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
           break;
         }
       }
-      DPRINT(F("WINDDIR aVal           : ")); DDEC(aVal); DPRINT(F(" i = ")); DDECLN(idxwdir);
+      //DPRINT(F("WINDDIR aVal  : ")); DDEC(aVal); DPRINT(F(" i = ")); DDECLN(idxwdir);
 #endif
 
       //Schwankungsbreite
@@ -349,23 +446,29 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 
       idxoldwdir = idxwdir;
 
-      DPRINT(F("WINDDIR winddir/3      : ")); DDECLN(winddir);
-      DPRINT(F("WINDDIR winddirrange   : ")); DDECLN(winddirrange);
+      //DPRINT(F("WINDDIR dir/3 : ")); DDECLN(winddir);
+      //DPRINT(F("WINDDIR range : ")); DDECLN(winddirrange);
     }
 
-    void measure_rain() {
-      DPRINT(F("RAINCOUNTER            : "));
+    void measure_rainquantity() {
+#ifdef NSENSORS
+      _rainquantity_isr_counter++;
+#endif
       if (!initComplete) {
-        _rain_isr_counter = 0;
+        _rainquantity_isr_counter = 0;
+        //DPRINTLN(F("RAINCOUNTER   : initalize"));
       } else {
-        raincounter = _rain_isr_counter;
+        if (_rainquantity_isr_counter > RAINCOUNTER_MAX) {
+          _rainquantity_isr_counter = 1;
+        }
+        raincounter = _rainquantity_isr_counter;
       }
-      DDECLN(_rain_isr_counter);
+      DPRINT(F("RAINCOUNTER   : ")); DDECLN(_rainquantity_isr_counter);
     }
 
     void measure_lightning() {
 #ifdef NSENSORS
-      lightningcounter = random(255);
+      lightningcounter++;
       lightningdistance = random(15);
 #else
       if (!initLightningDetectorDone) {
@@ -376,29 +479,29 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
         if (as3935.LightningIsrCounter() > 0) {
           switch (as3935.GetInterruptSrc()) {
             case 0:
-              DPRINTLN("LD IRQ SRC NOT EXPECTED");
+              //DPRINTLN(F("LD IRQ SRC NOT EXPECTED"));
               break;
             case 1:
               lightning_dist_km = as3935.LightningDistKm();
-              DPRINT("LD LIGHTNING IN ");
-              DDEC(lightning_dist_km);
-              DPRINTLN(" km");
+              //DPRINT(F("LD LIGHTNING IN "));DDEC(lightning_dist_km);DPRINTLN(" km");
               lightningcounter++;
               // Wenn Zähler überläuft (255 + 1), dann 1 statt 0
               if (lightningcounter == 0) lightningcounter = 1;
               lightningdistance = (lightning_dist_km + 1) / 3;
               break;
             case 2:
-              DPRINTLN("LD DIST DETECTED");
+              DPRINTLN(F("LD DIST"));
               break;
             case 3:
-              DPRINTLN("LD NOISE HIGH");
+              //DPRINTLN(F("LD NOISE"));
               break;
           }
           as3935.ResetLightninIsrCounter();
         }
       }
 #endif
+      //DPRINT(F("LD CNT        : ")); DDECLN(lightningcounter);
+      //DPRINT(F("LD DIST       : ")); DDECLN(lightningdistance);
     }
 
     void measure_thpb() {
@@ -408,10 +511,10 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       humidity    = 66 + random(7);     // 66% +x
       temperature = 150 + random(50);   // 15C +x
       brightness = 1700000 + random(10000);   // 67000 Lux +x
-      DPRINT(F("        airPressure    : ")); DDECLN(airPressure);
-      DPRINT(F("        humidity       : ")); DDECLN(humidity);
-      DPRINT(F("        temperature    : ")); DDECLN(temperature);
-      DPRINT(F("        brightness     : ")); DDECLN(brightness);
+      //DPRINT(F("        airPressure    : ")); DDECLN(airPressure);
+      //DPRINT(F("        humidity       : ")); DDECLN(humidity);
+      //DPRINT(F("        temperature    : ")); DDECLN(temperature);
+      //DPRINT(F("        brightness     : ")); DDECLN(brightness);
 #else
       bme280.measure(height);
       temperature = bme280.temperature();
@@ -426,7 +529,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       max44009.measure();
       brightness = max44009.brightness();
 #endif
-      DPRINT(F("BRIGHTNESS             : ")  ); DDECLN(brightness);
+      //DPRINT(F("BRIGHTNESS    : ")  ); DDECLN(brightness);
 #endif
     }
 
@@ -460,6 +563,8 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       //DPRINTLN(F("* LIGHTNINGDETECTOR    : "));
       //DPRINT(F("*  - CAPACITOR         : ")); DDECLN(this->getList1().LightningDetectorCapacitor());
       //DPRINT(F("*  - DISTURB.DETECTION : ")); DDECLN(this->getList1().LightningDetectorDisturberDetection());
+      //DPRINT(F("PEERSETTING UPPER  = ")); DDECLN(this->getList1().STORM_UPPER_THRESHOLD());
+      //DPRINT(F("PEERSETTING LOWER  = ")); DDECLN(this->getList1().STORM_LOWER_THRESHOLD());
       initLightningDetectorDone = false;
     }
 
@@ -481,7 +586,7 @@ class SensChannelDevice : public MultiChannelDevice<Hal, WeatherChannel, 1, Sens
     virtual void configChanged () {
       TSDevice::configChanged();
       DPRINTLN("* Config Changed       : List0");
-      //DPRINT(F("* SENDEINTERVALL       : ")); DDECLN(this->getList0().updIntervall());
+      DPRINT(F("* SENDEINTERVALL       : ")); DDECLN(this->getList0().updIntervall());
       //DPRINT(F("* ALTITUDE             : ")); DDECLN(this->getList0().height());
       //DPRINT(F("* TRANSMITTRYMAX       : ")); DDECLN(this->getList0().transmitDevTryMax());
     }
@@ -500,28 +605,35 @@ void setup () {
   buttonISR(cfgBtn, CONFIG_BUTTON_PIN);
   sdev.initDone();
 
-  pinMode(RAINCOUNTER_PIN, INPUT_PULLUP);
-  pinMode(WINDCOUNTER_PIN, INPUT_PULLUP);
+  pinMode(RAINQUANTITYCOUNTER_PIN, INPUT_PULLUP);
+  pinMode(WINDSPEEDCOUNTER_PIN, INPUT_PULLUP);
   pinMode(WINDDIRECTION_PIN, INPUT_PULLUP);
-  pinMode(RAINDETECTOR_PIN, INPUT_PULLUP);
 
-  if ( digitalPinToInterrupt(RAINCOUNTER_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(RAINCOUNTER_PIN, raincounterISR, RISING); else attachInterrupt(digitalPinToInterrupt(RAINCOUNTER_PIN), raincounterISR, RISING);
-  if ( digitalPinToInterrupt(WINDCOUNTER_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(WINDCOUNTER_PIN, windcounterISR, RISING); else attachInterrupt(digitalPinToInterrupt(WINDCOUNTER_PIN), windcounterISR, RISING);
+#ifdef USE_RAINDETECTOR_STALLBIZ
+  pinMode(RAINDETECTOR_STALLBIZ_CRG_PIN, OUTPUT);
+  pinMode(RAINDETECTOR_STALLBIZ_HEAT_PIN, OUTPUT);
+  pinMode(RAINDETECTOR_STALLBIZ_SENS_PIN, INPUT);
+#else
+  pinMode(RAINDETECTOR_PIN, INPUT_PULLUP);
+#endif
+
+  if ( digitalPinToInterrupt(RAINQUANTITYCOUNTER_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(RAINQUANTITYCOUNTER_PIN, rainquantitycounterISR, RISING); else attachInterrupt(digitalPinToInterrupt(RAINQUANTITYCOUNTER_PIN), rainquantitycounterISR, RISING);
+  if ( digitalPinToInterrupt(WINDSPEEDCOUNTER_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(WINDSPEEDCOUNTER_PIN, windspeedcounterISR, RISING); else attachInterrupt(digitalPinToInterrupt(WINDSPEEDCOUNTER_PIN), windspeedcounterISR, RISING);
 }
 
 void loop() {
   bool worked = hal.runready();
   bool poll = sdev.pollRadio();
   if ( worked == false && poll == false ) {
-    hal.activity.savePower<Idle<>>(hal);
+    hal.activity.savePower<Idle<false, true>>(hal);
   }
 }
 
-void raincounterISR() {
-  _rain_isr_counter++;
+void rainquantitycounterISR() {
+  _rainquantity_isr_counter++;
 }
 
-void windcounterISR() {
+void windspeedcounterISR() {
   _wind_isr_counter++;
 }
 

@@ -28,7 +28,6 @@
   jp112sdl 2018Jun21 modified for the use with AskSinPP (using SPI transactions)
 
 */
-//#define  NDEBUG
 #include <AskSinPP.h>
 #include "PWFusion_AS3935.h"
 #define _SPI_CLOCK_DIVIDER  SPI_CLOCK_DIV8
@@ -127,14 +126,14 @@ void PWF_AS3935::AS3935_DisturberEn(void)
 {
   // register 0x03, PWD bit: 5 (sets MASK_DIST)
   _sing_reg_write(0x03, 0x20, 0x00);
-  DPRINTLN("LD DIST DETECT EN");
+  //DPRINTLN("LD DIST DETECT EN");
 }
 
 void PWF_AS3935::AS3935_DisturberDis(void)
 {
   // register 0x03, PWD bit: 5 (sets MASK_DIST)
   _sing_reg_write(0x03, 0x20, 0x20);
-  DPRINTLN("LD: DIST DETECT DIS");
+  //DPRINTLN("LD: DIST DETECT DIS");
 }
 
 void PWF_AS3935::AS3935_SetIRQ_Output_Source(uint8_t irq_select)
@@ -390,5 +389,5 @@ void PWF_AS3935::AS3935_ManualCal(uint8_t capacitance, uint8_t disturber, uint8_
     AS3935_DisturberEn();
   }
 
-  DPRINTLN("LD CAL COMPLETE");
+  //DPRINTLN("LD CAL COMPLETE");
 }
