@@ -16,7 +16,6 @@ class Sens_Bme280 : public Sensor {
   uint16_t  _pressureNN;
   uint8_t   _humidity;
   uint16_t  _dewPoint;
-  uint8_t   _humidityAbs;
 ;
 
   BME280I2C _bme280;    		// Default : forced mode, standby time = 1000 ms, Oversampling = pressure ×1, temperature ×1, humidity ×1, filter off
@@ -54,7 +53,6 @@ public:
       _pressure    = (uint16_t)(pres * 10);
       _pressureNN  = (uint16_t)(EnvironmentCalculations::EquivalentSeaLevelPressure(float(height), temp, pres) * 10);
       _humidity    = (uint8_t)hum;
-      _humidityAbs = (uint8_t)(EnvironmentCalculations::AbsoluteHumidity(temp, hum, EnvironmentCalculations::TempUnit_Celsius));
       _dewPoint    = (int16_t)(EnvironmentCalculations::DewPoint(temp, hum, EnvironmentCalculations::TempUnit_Celsius) * 10);
       
       DPRINTLN(F("BME280:"));
@@ -62,7 +60,6 @@ public:
       DPRINT(F("-P    : ")); DDECLN(_pressure);
       DPRINT(F("-P(NN): ")); DDECLN(_pressureNN);
       DPRINT(F("-H    : ")); DDECLN(_humidity);
-      DPRINT(F("-H(Ab): ")); DDECLN(_humidityAbs);
       DPRINT(F("-DP   : ")); DDECLN(_dewPoint);
     }
   }
@@ -71,9 +68,7 @@ public:
   uint16_t pressure ()    { return _pressure; }
   uint16_t pressureNN ()  { return _pressureNN; }
   uint8_t  humidity ()    { return _humidity; }
-  uint8_t  humidityAbs () { return _humidityAbs; }
   int16_t  dewPoint ()    { return _dewPoint; }
-
 };
 
 }
