@@ -280,10 +280,11 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     void processMessage(uint8_t msgtype) {
       measure_winddirection();
       measure_thpb();
-      measure_rain();
+      measure_rainquantity();
 
       if (initComplete) {
         windspeed = windspeed / short_interval_measure_count;
+        if (windspeed > WINDSPEED_MAX) windspeed = WINDSPEED_MAX;
         uvindex = uvindex / short_interval_measure_count;
       }
 
