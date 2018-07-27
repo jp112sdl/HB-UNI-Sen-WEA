@@ -90,7 +90,7 @@ Hal hal;
 
 class WeatherEventMsg : public Message {
   public:
-    void init(uint8_t msgcnt, int16_t temp, uint16_t airPressure, uint8_t humidity, uint32_t brightness, bool israining, uint16_t raincounter,  uint16_t windspeed, uint8_t winddir, uint8_t winddirrange, uint16_t gustspeed, uint8_t uvindex, uint8_t lightningcounter, uint8_t lightningdistance) {
+    void init(uint8_t msgcnt, int16_t temp, uint16_t airPressure, uint8_t humidity, uint32_t brightness, bool israining, bool isheating, uint16_t raincounter,  uint16_t windspeed, uint8_t winddir, uint8_t winddirrange, uint16_t gustspeed, uint8_t uvindex, uint8_t lightningcounter, uint8_t lightningdistance) {
       Message::init(0x1a, msgcnt, 0x70, BIDI | RPTEN, (temp >> 8) & 0x7f, temp & 0xff);
       pload[0] = (airPressure >> 8) & 0xff;
       pload[1] = airPressure & 0xff;
@@ -103,7 +103,7 @@ class WeatherEventMsg : public Message {
       pload[8] = (windspeed >> 8) & 0xff | (winddirrange << 6);
       pload[9] = windspeed & 0xff;
       pload[10] = winddir;
-      pload[11] = (gustspeed >> 8) & 0xff;
+      pload[11] = (gustspeed >> 8) & 0xff | (isheating << 7);
       pload[12] = gustspeed & 0xff;
       pload[13] = (uvindex & 0xff) | (lightningdistance << 4);
       pload[14] = lightningcounter & 0xff;
@@ -210,6 +210,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     uint8_t       humidity;
     uint32_t      brightness;
     bool          israining;
+    bool          isheating;
     uint16_t      raincounter;
     uint16_t      windspeed;
     uint16_t      gustspeed;
@@ -241,7 +242,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     Sens_As3935<AS3935_IRQ_PIN, AS3935_CS_PIN> as3935;
 
   public:
-    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), israining_alarm_count(0), initLightningDetectorDone(false), initComplete(false), windspeed(0), uvindex(0), short_interval_measure_count(0), wind_and_uv_measure(*this), lightning_and_raining_check(*this)  {}
+    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), israining_alarm_count(0), israining(false), initLightningDetectorDone(false), initComplete(false), windspeed(0), uvindex(0), short_interval_measure_count(0), wind_and_uv_measure(*this), lightning_and_raining_check(*this)  {}
     virtual ~WeatherChannel () {}
 
     class WindSpeedAndUVMeasureAlarm : public Alarm {
@@ -288,7 +289,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       //DPRINT(F("WINDSPEED     : ")); DDECLN(windspeed);
       //DPRINT(F("UV Index      : ")); DDECLN(uvindex);
       uint8_t msgcnt = device().nextcount();
-      msg.init(msgcnt, temperature, airPressure, humidity, brightness, israining, raincounter, windspeed, winddir, winddirrange, gustspeed, uvindex, lightningcounter, lightningdistance);
+      msg.init(msgcnt, temperature, airPressure, humidity, brightness, israining, isheating, raincounter, windspeed, winddir, winddirrange, gustspeed, uvindex, lightningcounter, lightningdistance);
       if (msgtype == Message::BIDI || msgcnt % 20 == 1) {
         device().sendPeerEvent(msg, *this);
       } else {
@@ -395,10 +396,11 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       }
     }
 
-    void raindetector_heater(bool ON) {
+    void raindetector_heater(bool State) {
 #ifdef USE_RAINDETECTOR_STALLBIZ
-      DPRINT(F("RD HEAT       : ")); DDECLN(ON);
-      digitalWrite(RAINDETECTOR_STALLBIZ_HEAT_PIN, ON);
+      DPRINT(F("RD HEAT       : ")); DDECLN(State);
+      isheating = State;
+      digitalWrite(RAINDETECTOR_STALLBIZ_HEAT_PIN, State);
 #endif
     }
 
