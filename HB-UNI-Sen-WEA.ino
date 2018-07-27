@@ -74,7 +74,6 @@ using namespace as;
 volatile uint32_t _rainquantity_isr_counter = 0;
 volatile uint16_t _wind_isr_counter = 0;
 
-
 const struct DeviceInfo PROGMEM devinfo = {
   {0xF1, 0xD0, 0x02},        // Device ID
   "JPWEA00002",           	 // Device Serial
@@ -210,7 +209,6 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     uint8_t       humidity;
     uint32_t      brightness;
     bool          israining;
-    bool          wasraining;
     uint16_t      raincounter;
     uint16_t      windspeed;
     uint16_t      gustspeed;
@@ -219,15 +217,12 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     uint8_t       lightningdistance;
 
     uint8_t       winddir;
-    uint8_t       idxoldwdir;
     uint8_t       winddirrange;
 
     bool          initComplete;
     bool          initLightningDetectorDone;
     uint8_t       short_interval_measure_count;
     uint8_t       israining_alarm_count;
-    uint8_t       STORM_PEER_VAL;
-    uint8_t       STORM_PEER_VAL_Last;
 
     uint8_t       anemometerRadius;
     uint8_t       anemometerCalibrationFactor;
@@ -245,7 +240,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     Sens_As3935<AS3935_IRQ_PIN, AS3935_CS_PIN> as3935;
 
   public:
-    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), STORM_PEER_VAL(0), STORM_PEER_VAL_Last(0), israining_alarm_count(0), initLightningDetectorDone(false), wasraining(false), initComplete(false), windspeed(0), uvindex(0), short_interval_measure_count(0), wind_and_uv_measure(*this), lightning_and_raining_check(*this)  {}
+    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), israining_alarm_count(0), initLightningDetectorDone(false), initComplete(false), windspeed(0), uvindex(0), short_interval_measure_count(0), wind_and_uv_measure(*this), lightning_and_raining_check(*this)  {}
     virtual ~WeatherChannel () {}
 
     class WindSpeedAndUVMeasureAlarm : public Alarm {
@@ -330,20 +325,22 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
         sendExtraMessage(0);
       }
       //DPRINT(F("WIND kmph     : ")); DDECLN(kmph);
+      static uint8_t STORM_PEER_VALUE_Last = 0;
+      static uint8_t STORM_PEER_VALUE = 0;
       if (peers() > 0) {
         if (this->getList1().STORM_UPPER_THRESHOLD() > 0) {
           if (kmph >= this->getList1().STORM_UPPER_THRESHOLD() || kmph <= this->getList1().STORM_LOWER_THRESHOLD()) {
             static uint8_t evcnt = 0;
             SensorEventMsg& rmsg = (SensorEventMsg&)device().message();
 
-            if (kmph >= this->getList1().STORM_UPPER_THRESHOLD()) STORM_PEER_VAL = 200;
-            if (kmph <= this->getList1().STORM_LOWER_THRESHOLD()) STORM_PEER_VAL = 100;
+            if (kmph >= this->getList1().STORM_UPPER_THRESHOLD()) STORM_PEER_VALUE = 200;
+            if (kmph <= this->getList1().STORM_LOWER_THRESHOLD()) STORM_PEER_VALUE = 100;
 
-            if (STORM_PEER_VAL != STORM_PEER_VAL_Last) {
-              rmsg.init(device().nextcount(), number(), evcnt++, STORM_PEER_VAL, false , false);
+            if (STORM_PEER_VALUE != STORM_PEER_VALUE_Last) {
+              rmsg.init(device().nextcount(), number(), evcnt++, STORM_PEER_VALUE, false , false);
               device().sendPeerEvent(rmsg, *this);
             }
-            STORM_PEER_VAL_Last = STORM_PEER_VAL;
+            STORM_PEER_VALUE_Last = STORM_PEER_VALUE;
           }
         }
       }
@@ -357,6 +354,8 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     }
 
     void measure_israining() {
+      static bool wasraining = false;
+
       if (initComplete) {
         if (israining_alarm_count >= RAINDETECTOR_CHECK_INTERVAL) {
 #ifdef USE_RAINDETECTOR_STALLBIZ
@@ -437,6 +436,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 #endif
 
       //Schwankungsbreite
+      static uint8_t idxoldwdir = 0;
       winddirrange = 3; // 0  - 3 (0, 22,5, 45, 67,5°)
       int idxdiff = abs(idxwdir - idxoldwdir);
 
