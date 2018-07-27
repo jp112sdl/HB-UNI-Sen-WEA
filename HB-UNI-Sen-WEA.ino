@@ -64,8 +64,9 @@ const uint16_t WINDDIRS[] = { 33 , 71, 51 , 111, 93, 317, 292 , 781, 544, 650, 1
 
 
 //some static definitions
-#define WINDSPEED_MAX              16383
-#define RAINCOUNTER_MAX            32767
+#define WINDSPEED_MAX              0x3FFF
+#define GUSTSPEED_MAX              0x7FFF
+#define RAINCOUNTER_MAX            0x7FFF
 #define BH1750_BRIGHTNESS_FACTOR   1.2    //you have to multiply BH1750 raw value by 1.2 (datasheet)
 #define PEERS_PER_CHANNEL          4
 
@@ -346,7 +347,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       }
 
       if (kmph > gustspeed) {
-        gustspeed = kmph;
+        gustspeed = (kmph > GUSTSPEED_MAX) ? GUSTSPEED_MAX : kmph;
       }
 
       windspeed += kmph;
