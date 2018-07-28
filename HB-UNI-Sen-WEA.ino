@@ -482,11 +482,11 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
         if (as3935.LightningIsrCounter() > 0) {
           switch (as3935.GetInterruptSrc()) {
             case 0:
-              //DPRINTLN(F("LD IRQ SRC NOT EXPECTED"));
+              DPRINTLN(F("LD IRQ SRC NOT EXPECTED"));
               break;
             case 1:
               lightning_dist_km = as3935.LightningDistKm();
-              //DPRINT(F("LD LIGHTNING IN "));DDEC(lightning_dist_km);DPRINTLN(" km");
+              DPRINT(F("LD LIGHTNING IN ")); DDEC(lightning_dist_km); DPRINTLN(" km");
               lightningcounter++;
               // Wenn Zähler überläuft (255 + 1), dann 1 statt 0
               if (lightningcounter == 0) lightningcounter = 1;
@@ -496,7 +496,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
               DPRINTLN(F("LD DIST"));
               break;
             case 3:
-              //DPRINTLN(F("LD NOISE"));
+              DPRINTLN(F("LD NOISE"));
               break;
           }
           as3935.ResetLightninIsrCounter();
