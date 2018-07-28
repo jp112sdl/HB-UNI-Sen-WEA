@@ -318,8 +318,8 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 #endif
       //V = 2 * R * Pi * N
       //  int kmph =  3.141593 * 2 * ((float)anemometerRadius / 100)   * ((float)_wind_isr_counter / (float)WINDSPEED_MEASUREINTERVAL_SECONDS)        * 3.6 * ((float)anemometerCalibrationFactor / 10);
-      int kmph = ((226L * anemometerRadius * anemometerCalibrationFactor * _wind_isr_counter) / WINDSPEED_MEASUREINTERVAL_SECONDS) / 10000;
-      if (extraMessageOnGustThreshold > 0 && kmph > (extraMessageOnGustThreshold * 10)) {
+      int kmph = ((226L * this->getList1().AnemometerRadius() * this->getList1().AnemometerCalibrationFactor() * _wind_isr_counter) / WINDSPEED_MEASUREINTERVAL_SECONDS) / 10000;
+      if (this->getList1().ExtraMessageOnGustThreshold() > 0 && kmph > (this->getList1().ExtraMessageOnGustThreshold() * 10)) {
         sendExtraMessage(0);
       }
       //DPRINT(F("WIND kmph     : ")); DDECLN(kmph);
