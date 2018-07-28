@@ -226,10 +226,6 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     uint8_t       short_interval_measure_count;
     uint8_t       israining_alarm_count;
 
-    uint8_t       anemometerRadius;
-    uint8_t       anemometerCalibrationFactor;
-    uint8_t       extraMessageOnGustThreshold;
-
     Sens_Bme280                 bme280;
     Veml6070<VEML6070_1_T>      veml6070;
 #ifdef USE_BH1750
@@ -555,14 +551,11 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     }
 
     void configChanged() {
-      anemometerRadius = this->getList1().AnemometerRadius();
-      anemometerCalibrationFactor = this->getList1().AnemometerCalibrationFactor();
-      extraMessageOnGustThreshold = this->getList1().ExtraMessageOnGustThreshold();
       DPRINTLN("* Config changed       : List1");
       //DPRINTLN(F("* ANEMOMETER           : "));
-      //DPRINT(F("*  - RADIUS            : ")); DDECLN(anemometerRadius);
-      //DPRINT(F("*  - CALIBRATIONFACTOR : ")); DDECLN(anemometerCalibrationFactor);
-      //DPRINT(F("*  - GUST MSG THRESHOLD: ")); DDECLN(extraMessageOnGustThreshold);
+      //DPRINT(F("*  - RADIUS            : ")); DDECLN(this->getList1().AnemometerRadius());
+      //DPRINT(F("*  - CALIBRATIONFACTOR : ")); DDECLN(this->getList1().AnemometerCalibrationFactor());
+      //DPRINT(F("*  - GUST MSG THRESHOLD: ")); DDECLN(this->getList1().ExtraMessageOnGustThreshold());
       //DPRINTLN(F("* LIGHTNINGDETECTOR    : "));
       //DPRINT(F("*  - CAPACITOR         : ")); DDECLN(this->getList1().LightningDetectorCapacitor());
       //DPRINT(F("*  - DISTURB.DETECTION : ")); DDECLN(this->getList1().LightningDetectorDisturberDetection());
