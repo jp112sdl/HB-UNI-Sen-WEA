@@ -176,17 +176,17 @@ class SensorList1 : public RegList1<Reg1> {
       return this->readRegister(0x06, 0);
     }
 
-    bool STORM_UPPER_THRESHOLD (uint8_t value) const {
+    bool StormUpperThreshold (uint8_t value) const {
       return this->writeRegister(0x07, value & 0xff);
     }
-    uint8_t STORM_UPPER_THRESHOLD () const {
+    uint8_t StormUpperThreshold () const {
       return this->readRegister(0x07, 0);
     }
 
-    bool STORM_LOWER_THRESHOLD (uint8_t value) const {
+    bool StormLowerThreshold (uint8_t value) const {
       return this->writeRegister(0x08, value & 0xff);
     }
-    uint8_t STORM_LOWER_THRESHOLD () const {
+    uint8_t StormLowerThreshold () const {
       return this->readRegister(0x08, 0);
     }
 
@@ -197,8 +197,8 @@ class SensorList1 : public RegList1<Reg1> {
       LightningDetectorCapacitor(80);
       LightningDetectorDisturberDetection(true);
       ExtraMessageOnGustThreshold(0);
-      STORM_UPPER_THRESHOLD(0);
-      STORM_LOWER_THRESHOLD(0);
+      StormUpperThreshold(0);
+      StormLowerThreshold(0);
     }
 };
 
@@ -330,13 +330,13 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       static uint8_t STORM_PEER_VALUE_Last = 0;
       static uint8_t STORM_PEER_VALUE = 0;
       if (peers() > 0) {
-        if (this->getList1().STORM_UPPER_THRESHOLD() > 0) {
-          if (kmph >= this->getList1().STORM_UPPER_THRESHOLD() || kmph <= this->getList1().STORM_LOWER_THRESHOLD()) {
+        if (this->getList1().StormUpperThreshold() > 0) {
+          if (kmph >= this->getList1().StormUpperThreshold() || kmph <= this->getList1().StormLowerThreshold()) {
             static uint8_t evcnt = 0;
             SensorEventMsg& rmsg = (SensorEventMsg&)device().message();
 
-            if (kmph >= this->getList1().STORM_UPPER_THRESHOLD()) STORM_PEER_VALUE = 200;
-            if (kmph <= this->getList1().STORM_LOWER_THRESHOLD()) STORM_PEER_VALUE = 100;
+            if (kmph >= this->getList1().StormUpperThreshold()) STORM_PEER_VALUE = 200;
+            if (kmph <= this->getList1().StormLowerThreshold()) STORM_PEER_VALUE = 100;
 
             if (STORM_PEER_VALUE != STORM_PEER_VALUE_Last) {
               rmsg.init(device().nextcount(), number(), evcnt++, STORM_PEER_VALUE, false , false);
@@ -566,8 +566,8 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       //DPRINTLN(F("* LIGHTNINGDETECTOR    : "));
       //DPRINT(F("*  - CAPACITOR         : ")); DDECLN(this->getList1().LightningDetectorCapacitor());
       //DPRINT(F("*  - DISTURB.DETECTION : ")); DDECLN(this->getList1().LightningDetectorDisturberDetection());
-      //DPRINT(F("PEERSETTING UPPER  = ")); DDECLN(this->getList1().STORM_UPPER_THRESHOLD());
-      //DPRINT(F("PEERSETTING LOWER  = ")); DDECLN(this->getList1().STORM_LOWER_THRESHOLD());
+      //DPRINT(F("PEERSETTING UPPER  = ")); DDECLN(this->getList1().StormUpperThreshold());
+      //DPRINT(F("PEERSETTING LOWER  = ")); DDECLN(this->getList1().StormLowerThreshold());
       initLightningDetectorDone = false;
     }
 
