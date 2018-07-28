@@ -35,8 +35,8 @@
 #define RAINDETECTOR_STALLBIZ_SENS_PIN       A3   // Pin, an dem der Kondensator angeschlossen ist (hier wird der analoge Wert für die Regenerkennung ermittelt)
 #define RAINDETECTOR_STALLBIZ_CRG_PIN        4    // Pin, an dem der Widerstand für die Kondensatoraufladung angeschlossen is
 #define RAINDETECTOR_STALLBIZ_HEAT_PIN       9    // Pin, an dem der Transistor für die Heizung angeschlossen ist
-#define RAINDETECTOR_STALLBIZ_RAIN_THRESHOLD 780  // analoger Messwert, ab dem 'Regen erkannt' angezeigt wird 
-#define RAINDETECTOR_STALLBIZ_HEAT_THRESHOLD 300  // analoger Messwert, ab dem die Heizung aktiviert wird
+#define RAINDETECTOR_STALLBIZ_RAIN_THRESHOLD 760  // analoger Messwert, ab dem 'Regen erkannt' angezeigt wird 
+#define RAINDETECTOR_STALLBIZ_HEAT_THRESHOLD 450  // analoger Messwert, ab dem die Heizung aktiviert wird
 
 //bei Verwendung eines Regensensors mit H/L-Pegel Ausgang
 #define RAINDETECTOR_PIN                     9    // Pin, an dem der Regendetektor angeschlossen ist
