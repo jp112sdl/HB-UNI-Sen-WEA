@@ -35,8 +35,8 @@
 #define RAINDETECTOR_STALLBIZ_SENS_PIN       A3   // Pin, an dem der Kondensator angeschlossen ist (hier wird der analoge Wert für die Regenerkennung ermittelt)
 #define RAINDETECTOR_STALLBIZ_CRG_PIN        4    // Pin, an dem der Widerstand für die Kondensatoraufladung angeschlossen is
 #define RAINDETECTOR_STALLBIZ_HEAT_PIN       9    // Pin, an dem der Transistor für die Heizung angeschlossen ist
-#define RAINDETECTOR_STALLBIZ_RAIN_THRESHOLD 760  // analoger Messwert, ab dem 'Regen erkannt' angezeigt wird 
-#define RAINDETECTOR_STALLBIZ_HEAT_THRESHOLD 450  // analoger Messwert, ab dem die Heizung aktiviert wird
+#define RAINDETECTOR_STALLBIZ_RAIN_THRESHOLD 750  // analoger Messwert, ab dem 'Regen erkannt' angezeigt wird 
+#define RAINDETECTOR_STALLBIZ_HEAT_THRESHOLD 500  // analoger Messwert, ab dem die Heizung aktiviert wird
 
 //bei Verwendung eines Regensensors mit H/L-Pegel Ausgang
 #define RAINDETECTOR_PIN                     9    // Pin, an dem der Regendetektor angeschlossen ist
@@ -363,9 +363,20 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
           int rdVal = analogRead(RAINDETECTOR_STALLBIZ_SENS_PIN);
           DPRINT(F("RD aVal       : ")); DDECLN(rdVal);
 
-          israining = (rdVal > RAINDETECTOR_STALLBIZ_RAIN_THRESHOLD);
+          if (rdVal > RAINDETECTOR_STALLBIZ_RAIN_THRESHOLD) {
+            israining = true;
+          }
+          if (rdVal < (RAINDETECTOR_STALLBIZ_RAIN_THRESHOLD - 200)) {
+            israining = false;
+          }
           // Heizung einschalten, wenn Messwert > RAINDETECTOR_STALLBIZ_HEAT_THRESHOLD
-          bool mustheat = (rdVal > RAINDETECTOR_STALLBIZ_HEAT_THRESHOLD);
+          static bool mustheat = false;
+          if (rdVal > RAINDETECTOR_STALLBIZ_HEAT_THRESHOLD) {
+            mustheat = true;
+          }
+          if (rdVal < (RAINDETECTOR_STALLBIZ_HEAT_THRESHOLD - 100)) {
+            mustheat = false;
+          }
           // Taubildung bei +/- 2°C Temperatur um den Taupunkt
           bool dewfall = (abs(bme280.temperature() - bme280.dewPoint()) < 20);
           // Heizung schalten
