@@ -10,7 +10,6 @@
 
 #define  EI_NOTEXTERNAL
 #include <EnableInterrupt.h>
-#include <LowPower.h>
 #include <SPI.h>  // after including SPI Library - we can use LibSPI class
 #include <AskSinPP.h>
 #include <Register.h>
@@ -78,6 +77,8 @@ using namespace as;
 volatile uint32_t _rainquantity_isr_counter = 0;
 volatile uint16_t _wind_isr_counter = 0;
 
+enum eventMessageSources {EVENT_SRC_RAINING, EVENT_SRC_HEATING, EVENT_SRC_GUST};
+
 const struct DeviceInfo PROGMEM devinfo = {
   {0xF1, 0xD0, 0x02},        // Device ID
   "JPWEA00002",           	 // Device Serial
@@ -110,6 +111,15 @@ class WeatherEventMsg : public Message {
       pload[12] = gustspeed & 0xff;
       pload[13] = (uvindex & 0xff) | (lightningdistance << 4);
       pload[14] = lightningcounter & 0xff;
+    }
+};
+
+class ExtraEventMsg : public Message {
+  public:
+    void init(uint8_t msgcnt, bool israining, bool isheating, uint16_t gustspeed) {
+      Message::init(0x0d, msgcnt, 0x53, BIDI | RPTEN, 0x41, (israining & 0xff) | (isheating << 1));
+      pload[0] =  (gustspeed >> 8) & 0xff;
+      pload[1] =  gustspeed & 0xff;
     }
 };
 
@@ -206,8 +216,6 @@ class SensorList1 : public RegList1<Reg1> {
 };
 
 class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_PER_CHANNEL, SensorList0>, public Alarm {
-
-    WeatherEventMsg msg;
     int16_t       temperature;
     uint16_t      airPressure;
     uint8_t       humidity;
@@ -273,7 +281,8 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
         }
     } lightning_and_raining_check;
 
-    void processMessage(uint8_t msgtype) {
+
+    virtual void trigger (__attribute__ ((unused)) AlarmClock& clock) {
       measure_winddirection();
       measure_thpb();
       measure_rainquantity();
@@ -287,9 +296,10 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       //DPRINT(F("GUSTSPEED     : ")); DDECLN(gustspeed);
       //DPRINT(F("WINDSPEED     : ")); DDECLN(windspeed);
       //DPRINT(F("UV Index      : ")); DDECLN(uvindex);
+      WeatherEventMsg& msg = (WeatherEventMsg&)device().message();
       uint8_t msgcnt = device().nextcount();
       msg.init(msgcnt, temperature, airPressure, humidity, brightness, israining, isheating, raincounter, windspeed, winddir, winddirrange, gustspeed, uvindex, lightningcounter, lightningdistance);
-      if (msgtype == Message::BIDI || msgcnt % 20 == 1) {
+      if (msgcnt % 20 == 1) {
         device().sendPeerEvent(msg, *this);
       } else {
         device().broadcastPeerEvent(msg, *this);
@@ -305,14 +315,11 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       sysclock.add(*this);
     }
 
-    virtual void trigger (__attribute__ ((unused)) AlarmClock& clock) {
-      processMessage(Message::BCAST);
-    }
-
     void sendExtraMessage (uint8_t t) {
       DPRINT(F("SENDING EXTRA MESSAGE ")); DDECLN(t);
-      sysclock.cancel(*this);
-      processMessage(Message::BIDI);
+      ExtraEventMsg& extramsg = (ExtraEventMsg&)device().message();
+      extramsg.init(device().nextcount(), israining, isheating, gustspeed);
+      device().sendPeerEvent(extramsg, *this);
     }
 
     void measure_windspeed() {
@@ -322,9 +329,14 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       //V = 2 * R * Pi * N
       //  int kmph =  3.141593 * 2 * ((float)anemometerRadius / 100)   * ((float)_wind_isr_counter / (float)WINDSPEED_MEASUREINTERVAL_SECONDS)        * 3.6 * ((float)anemometerCalibrationFactor / 10);
       int kmph = ((226L * this->getList1().AnemometerRadius() * this->getList1().AnemometerCalibrationFactor() * _wind_isr_counter) / WINDSPEED_MEASUREINTERVAL_SECONDS) / 10000;
-      if (this->getList1().ExtraMessageOnGustThreshold() > 0 && kmph > (this->getList1().ExtraMessageOnGustThreshold() * 10)) {
-        sendExtraMessage(0);
+      if (kmph > gustspeed) {
+        gustspeed = (kmph > GUSTSPEED_MAX) ? GUSTSPEED_MAX : kmph;
       }
+
+      if (this->getList1().ExtraMessageOnGustThreshold() > 0 && kmph > (this->getList1().ExtraMessageOnGustThreshold() * 10)) {
+        sendExtraMessage(EVENT_SRC_GUST);
+      }
+
       //DPRINT(F("WIND kmph     : ")); DDECLN(kmph);
       static uint8_t STORM_PEER_VALUE_Last = 0;
       static uint8_t STORM_PEER_VALUE = 0;
@@ -344,10 +356,6 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
             STORM_PEER_VALUE_Last = STORM_PEER_VALUE;
           }
         }
-      }
-
-      if (kmph > gustspeed) {
-        gustspeed = (kmph > GUSTSPEED_MAX) ? GUSTSPEED_MAX : kmph;
       }
 
       windspeed += kmph;
@@ -391,7 +399,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
           DPRINT(F("RD israining  : ")); DDECLN(israining);
 
           if (wasraining != israining) {
-            sendExtraMessage(1);
+            sendExtraMessage(EVENT_SRC_RAINING);
             if (peers() > 0) {
               static uint8_t evcnt = 0;
               SensorEventMsg& rmsg = (SensorEventMsg&)device().message();
@@ -411,6 +419,11 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       DPRINT(F("RD HEAT       : ")); DDECLN(State);
       isheating = State;
       digitalWrite(RAINDETECTOR_STALLBIZ_HEAT_PIN, State);
+      static bool washeating = false;
+      if (washeating != State) {
+        sendExtraMessage(EVENT_SRC_HEATING);
+      }
+      washeating = State;
 #endif
     }
 
