@@ -1,4 +1,4 @@
-# Selbstbau-Wetterstation (mit Netzteilbetrieb) für HomeMatic [![Build Status](https://travis-ci.org/jp112sdl/HB-UNI-Sen-WEA.svg?branch=master)](https://travis-ci.org/jp112sdl/HB-UNI-Sen-WEA) [![GitHub issues](https://img.shields.io/github/issues/jp112sdl/HB-UNI-Sen-WEA.svg)](https://github.com/jp112sdl/HB-UNI-Sen-WEA/issues)
+# Selbstbau-Wetterstation (mit Netzteilbetrieb) für HomeMatic [![Build Status](https://travis-ci.org/jp112sdl/HB-UNI-Sen-WEA.svg?branch=master)](https://travis-ci.org/jp112sdl/HB-UNI-Sen-WEA)
 
 ### Die (garantiert nicht ganz vollständige ;) ) Dokumentation zu dem Projekt befindet sich ab sofort im [Wiki](https://github.com/jp112sdl/HB-UNI-Sen-WEA/wiki)
 
