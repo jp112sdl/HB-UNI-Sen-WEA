@@ -10,6 +10,7 @@
 
 #define  EI_NOTEXTERNAL
 #include <EnableInterrupt.h>
+#include <LowPower.h>
 #include <SPI.h>  // after including SPI Library - we can use LibSPI class
 #include <AskSinPP.h>
 #include <Register.h>
