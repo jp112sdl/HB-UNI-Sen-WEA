@@ -15,19 +15,12 @@
 #include <Register.h>
 
 #include <MultiChannelDevice.h>
-#include <sensors/Bh1750.h>
 #include <sensors/Max44009.h>
 #include <sensors/Veml6070.h>
 #include "Sensors/Sens_Bme280.h"
 #include "Sensors/Sens_As3935.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define CONFIG_BUTTON_PIN                    8     // Anlerntaster-Pin
-
-///////// verwendeter Lichtsensor
-#define USE_MAX44009
-//#define USE_BH1750
-/////////////////////////////////////////////////////////////////////
 
 ////////// REGENDETEKTOR
 #define USE_RAINDETECTOR_STALLBIZ
@@ -69,7 +62,6 @@ const uint16_t WINDDIRS[] = { 33 , 71, 51 , 111, 93, 317, 292 , 781, 544, 650, 1
 #define WINDSPEED_MAX              0x3FFF
 #define GUSTSPEED_MAX              0x7FFF
 #define RAINCOUNTER_MAX            0x7FFF
-#define BH1750_BRIGHTNESS_FACTOR   1.2    //you have to multiply BH1750 raw value with 1.2 (datasheet)
 #define PEERS_PER_CHANNEL          4
 
 using namespace as;
@@ -239,12 +231,8 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 
     Sens_Bme280                 bme280;
     Veml6070<VEML6070_1_T>      veml6070;
-#ifdef USE_BH1750
-    Bh1750<>                    bh1750;
-#endif
-#ifdef USE_MAX44009
     MAX44009<>                  max44009;
-#endif
+
   public:
     Sens_As3935<AS3935_IRQ_PIN, AS3935_CS_PIN> as3935;
 
@@ -547,14 +535,8 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       airPressure = bme280.pressureNN();
       humidity    = bme280.humidity();
 
-#ifdef USE_BH1750
-      bh1750.measure();
-      brightness = bh1750.brightness() * 10 * BH1750_BRIGHTNESS_FACTOR;
-#endif
-#ifdef USE_MAX44009
       max44009.measure();
       brightness = max44009.brightness();
-#endif
       //DPRINT(F("BRIGHTNESS    : ")  ); DDECLN(brightness);
 #endif
     }
@@ -563,12 +545,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       Channel::setup(dev, number, addr);
       tick = seconds2ticks(3);	// first message in 3 sec.
 #ifndef NSENSORS
-#ifdef USE_BH1750
-      bh1750.init();
-#endif
-#ifdef USE_MAX44009
       max44009.init();
-#endif
       bme280.init();
       veml6070.init();
 #endif
