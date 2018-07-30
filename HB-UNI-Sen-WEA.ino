@@ -33,11 +33,13 @@
 ////////// REGENDETEKTOR
 #define USE_RAINDETECTOR_STALLBIZ
 //bei Verwendung der Regensensorplatine von stall.biz (https://www.stall.biz/produkt/regenmelder-sensorplatine)
-#define RAINDETECTOR_STALLBIZ_SENS_PIN       A3   // Pin, an dem der Kondensator angeschlossen ist (hier wird der analoge Wert für die Regenerkennung ermittelt)
-#define RAINDETECTOR_STALLBIZ_CRG_PIN        4    // Pin, an dem der Widerstand für die Kondensatoraufladung angeschlossen is
-#define RAINDETECTOR_STALLBIZ_HEAT_PIN       9    // Pin, an dem der Transistor für die Heizung angeschlossen ist
-#define RAINDETECTOR_STALLBIZ_RAIN_THRESHOLD 750  // analoger Messwert, ab dem 'Regen erkannt' angezeigt wird 
-#define RAINDETECTOR_STALLBIZ_HEAT_THRESHOLD 500  // analoger Messwert, ab dem die Heizung aktiviert wird
+#define RAINDETECTOR_STALLBIZ_SENS_PIN            A3   // Pin, an dem der Kondensator angeschlossen ist (hier wird der analoge Wert für die Regenerkennung ermittelt)
+#define RAINDETECTOR_STALLBIZ_CRG_PIN             4    // Pin, an dem der Widerstand für die Kondensatoraufladung angeschlossen is
+#define RAINDETECTOR_STALLBIZ_HEAT_PIN            9    // Pin, an dem der Transistor für die Heizung angeschlossen ist
+#define RAINDETECTOR_STALLBIZ_RAIN_HI_THRESHOLD   750  // analoger Messwert, über dem 'Regen erkannt' angezeigt wird 
+#define RAINDETECTOR_STALLBIZ_RAIN_LO_THRESHOLD   500  // analoger Messwert, unter dem 'Regen erkannt' nicht mehr angezeigt wird 
+#define RAINDETECTOR_STALLBIZ_HEAT_HI_THRESHOLD   500  // analoger Messwert, über dem die Heizung aktiviert wird
+#define RAINDETECTOR_STALLBIZ_HEAT_LO_THRESHOLD   400  // analoger Messwert, unter dem die Heizung wieder deaktiviert wird
 
 //bei Verwendung eines Regensensors mit H/L-Pegel Ausgang
 #define RAINDETECTOR_PIN                     9    // Pin, an dem der Regendetektor angeschlossen ist
@@ -364,22 +366,22 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
           int rdVal = analogRead(RAINDETECTOR_STALLBIZ_SENS_PIN);
           DPRINT(F("RD aVal       : ")); DDECLN(rdVal);
 
-          if (rdVal > RAINDETECTOR_STALLBIZ_RAIN_THRESHOLD) {
+          if (rdVal > RAINDETECTOR_STALLBIZ_RAIN_HI_THRESHOLD) {
             israining = true;
           }
-          if (rdVal < (RAINDETECTOR_STALLBIZ_RAIN_THRESHOLD - 200)) {
+          if (rdVal < (RAINDETECTOR_STALLBIZ_RAIN_LO_THRESHOLD)) {
             israining = false;
           }
           // Heizung einschalten, wenn Messwert > RAINDETECTOR_STALLBIZ_HEAT_THRESHOLD
           static bool mustheat = false;
-          if (rdVal > RAINDETECTOR_STALLBIZ_HEAT_THRESHOLD) {
+          if (rdVal > RAINDETECTOR_STALLBIZ_HEAT_HI_THRESHOLD) {
             mustheat = true;
           }
-          if (rdVal < (RAINDETECTOR_STALLBIZ_HEAT_THRESHOLD - 100)) {
+          if (rdVal < (RAINDETECTOR_STALLBIZ_HEAT_LO_THRESHOLD)) {
             mustheat = false;
           }
           // Taubildung bei +/- 2°C Temperatur um den Taupunkt
-          bool dewfall = (abs(bme280.temperature() - bme280.dewPoint()) < 20);
+          bool dewfall = bme280.present() ? (abs(bme280.temperature() - bme280.dewPoint()) < 20) : false;
           // Heizung schalten
           raindetector_heater(mustheat || dewfall);
 #else
