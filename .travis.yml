@@ -8,7 +8,7 @@ before_install:
   - sudo mv arduino-1.6.5 /usr/local/share/arduino
   - sudo ln -s /usr/local/share/arduino/arduino /usr/local/bin/arduino
 install:
-  - ln -s $PWD /usr/local/share/arduino/libraries/HB-UNI-Sen-WEA
+  - git clone --branch=master https://github.com/GreyGnome/EnableInterrupt.git /usr/local/share/arduino/libraries/EnableInterrupt
 script:
   - arduino --verify --board arduino:avr:uno $PWD/HB-UNI-Sen-WEA.ino
 notifications:
