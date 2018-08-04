@@ -49,8 +49,6 @@
 //                             N                      O                       S                         W
 //entspricht Windrichtung in ° 0 , 22.5, 45  , 67.5, 90  ,112.5, 135, 157.5, 180 , 202.5, 225 , 247.5, 270 , 292.5, 315 , 337.5
 const uint16_t WINDDIRS[] = { 33 , 71, 51 , 111, 93, 317, 292 , 781, 544, 650, 180, 197, 183, 703, 40 , 41 };
-//(kleinste Werteabweichung / 2) - 1
-#define WINDDIR_TOLERANCE                    3     // Messtoleranz
 #define WINDDIRECTION_PIN                    A2    // Pin, an dem der Windrichtungsanzeiger angeschlossen ist
 
 
@@ -438,6 +436,10 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
         aVal += analogRead(WINDDIRECTION_PIN);
       }
       aVal = aVal >> 4;
+
+      uint8_t WINDDIR_TOLERANCE = 2;
+      if ((aVal > 100) && (aVal < 250)) WINDDIR_TOLERANCE = 5;
+      if (aVal >= 250) WINDDIR_TOLERANCE = 10;
 
       for (uint8_t i = 0; i < sizeof(WINDDIRS) / sizeof(uint16_t); i++) {
         if (aVal < WINDDIRS[i] + WINDDIR_TOLERANCE && aVal > WINDDIRS[i] - WINDDIR_TOLERANCE) {
