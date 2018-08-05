@@ -1,6 +1,6 @@
 #include <EnableInterrupt.h>
 
-const uint16_t WINDDIRS[] = {  200, 160, 412, 126, 148, 57, 72, 52, 113, 95, 320, 295, 785, 550, 655, 183   };
+const uint16_t WINDDIRS[] = { 56, 72, 52, 110, 93, 318, 292, 783, 546, 652, 181, 197, 158, 408, 125, 147 };
 #define WINDDIRECTION_PIN   A2
 #define WINDCOUNTER_PIN     5
 volatile int _windcounter = 0;
