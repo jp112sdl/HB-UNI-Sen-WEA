@@ -23,16 +23,19 @@ class Sens_As3935 : public Sensor {
     uint8_t _interrupt_src;
 public:
   Sens_As3935 () : _lightningDetector(_AS3935_CS_PIN, _AS3935_IRQ_PIN) {}
-    enum AS3935_ENVIRONMENT {
+    enum _AS3935_ENVIRONMENT {
         AS3935_ENVIRONMENT_OUTDOOR,
         AS3935_ENVIRONMENT_INDOOR
     };
 
-  void init (uint8_t _AS3935_CAPACITANCE, uint8_t _AS3935_DIST_EN, uint8_t _AS3935_ENVIRONMENT) {
+  void init (uint8_t _AS3935_CAPACITANCE, uint8_t _AS3935_DIST_EN, uint8_t _AS3935_ENVIRONMENT, uint8_t _AS3935_MINSTRIKES, uint8_t _AS3935_WATCHDOGTHRESHOLD, uint8_t _AS3935_NOISEFLOORLEVEL, uint8_t _AS3935_SPIKEREJECTION) {
     if ( digitalPinToInterrupt(_AS3935_IRQ_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(_AS3935_IRQ_PIN, lightningISR, RISING); else attachInterrupt(digitalPinToInterrupt(_AS3935_IRQ_PIN), lightningISR, RISING);
     _lightningDetector.AS3935_Reset();
     _lightningDetector.AS3935_ManualCal(_AS3935_CAPACITANCE, _AS3935_DIST_EN, _AS3935_ENVIRONMENT);
-    _lightningDetector.AS3935_SetMinStrikes(1);
+    _lightningDetector.AS3935_SetMinStrikes(_AS3935_MINSTRIKES);
+    _lightningDetector.AS3935_SetSpikeRejection(_AS3935_SPIKEREJECTION);
+    _lightningDetector.AS3935_SetWatchdogThreshold(_AS3935_WATCHDOGTHRESHOLD);
+    _lightningDetector.AS3935_SetNoiseFloorLvl(_AS3935_NOISEFLOORLEVEL);
     _lightningDetector.AS3935_PrintAllRegs();
     DPRINTLN("AS3935 Init done.");
     _present = true;
