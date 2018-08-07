@@ -23,15 +23,10 @@
 #define CONFIG_BUTTON_PIN                    8     // Anlerntaster-Pin
 
 ////////// REGENDETEKTOR
-#define USE_RAINDETECTOR_STALLBIZ
 //bei Verwendung der Regensensorplatine von stall.biz (https://www.stall.biz/produkt/regenmelder-sensorplatine)
 #define RAINDETECTOR_STALLBIZ_SENS_PIN            A3   // Pin, an dem der Kondensator angeschlossen ist (hier wird der analoge Wert für die Regenerkennung ermittelt)
 #define RAINDETECTOR_STALLBIZ_CRG_PIN             4    // Pin, an dem der Widerstand für die Kondensatoraufladung angeschlossen is
 #define RAINDETECTOR_STALLBIZ_HEAT_PIN            9    // Pin, an dem der Transistor für die Heizung angeschlossen ist
-#define RAINDETECTOR_STALLBIZ_RAIN_HI_THRESHOLD   750  // analoger Messwert, über dem 'Regen erkannt' angezeigt wird 
-#define RAINDETECTOR_STALLBIZ_RAIN_LO_THRESHOLD   500  // analoger Messwert, unter dem 'Regen erkannt' nicht mehr angezeigt wird 
-#define RAINDETECTOR_STALLBIZ_HEAT_HI_THRESHOLD   500  // analoger Messwert, über dem die Heizung aktiviert wird
-#define RAINDETECTOR_STALLBIZ_HEAT_LO_THRESHOLD   400  // analoger Messwert, unter dem die Heizung wieder deaktiviert wird
 
 //bei Verwendung eines Regensensors mit H/L-Pegel Ausgang
 #define RAINDETECTOR_PIN                     9    // Pin, an dem der Regendetektor angeschlossen ist
@@ -45,7 +40,7 @@
 
 #define AS3935_IRQ_PIN                       3     // IRQ Pin des Blitzdetektors
 #define AS3935_CS_PIN                        7     // CS Pin des Blitzdetektors
-
+#define AS3935_ENVIRONMENT                   ::Sens_As3935<>::AS3935_ENVIRONMENT_OUTDOOR
 //                             N                      O                       S                         W
 //entspricht Windrichtung in ° 0 , 22.5, 45  , 67.5, 90  ,112.5, 135, 157.5, 180 , 202.5, 225 , 247.5, 270 , 292.5, 315 , 337.5
 const uint16_t WINDDIRS[] = { 56, 72, 52, 110, 93, 318, 292, 783, 546, 652, 181, 197, 158, 408, 125, 147 };
@@ -73,7 +68,7 @@ const struct DeviceInfo PROGMEM devinfo = {
   {0xF1, 0xD0, 0x02},        // Device ID
   "JPWEA00002",           	 // Device Serial
   {0xF1, 0xD0},            	 // Device Model
-  0x13,                   	 // Firmware Version
+  0x14,                   	 // Firmware Version
   as::DeviceType::THSensor,  // Device Type
   {0x01, 0x01}             	 // Info Bytes
 };
@@ -140,7 +135,7 @@ class SensorList0 : public RegList0<Reg0> {
     }
 };
 
-DEFREGISTER(Reg1, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08)
+DEFREGISTER(Reg1, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15)
 class SensorList1 : public RegList1<Reg1> {
   public:
     SensorList1 (uint16_t addr) : RegList1<Reg1>(addr) {}
@@ -163,6 +158,34 @@ class SensorList1 : public RegList1<Reg1> {
     }
     uint8_t LightningDetectorCapacitor () const {
       return this->readRegister(0x04, 0);
+    }
+
+    bool LightningDetectorMinStrikes (uint8_t value) const {
+      return this->writeRegister(0x12, value & 0xff);
+    }
+    uint8_t LightningDetectorMinStrikes () const {
+      return this->readRegister(0x12, 0);
+    }
+
+    bool LightningDetectorWatchdogThreshold (uint8_t value) const {
+      return this->writeRegister(0x13, value & 0xff);
+    }
+    uint8_t LightningDetectorWatchdogThreshold () const {
+      return this->readRegister(0x13, 0);
+    }
+
+    bool LightningDetectorNoiseFloorLevel (uint8_t value) const {
+      return this->writeRegister(0x14, value & 0xff);
+    }
+    uint8_t LightningDetectorNoiseFloorLevel () const {
+      return this->readRegister(0x14, 0);
+    }
+
+    bool LightningDetectorSpikeRejection (uint8_t value) const {
+      return this->writeRegister(0x15, value & 0xff);
+    }
+    uint8_t LightningDetectorSpikeRejection () const {
+      return this->readRegister(0x15, 0);
     }
 
     bool LightningDetectorDisturberDetection () const {
@@ -193,6 +216,38 @@ class SensorList1 : public RegList1<Reg1> {
       return this->readRegister(0x08, 0);
     }
 
+    bool RaindetectorStallBizHiThresholdRain (uint16_t value) const {
+      return this->writeRegister(0x09, (value >> 8) & 0xff) && this->writeRegister(0x0a, value & 0xff);
+    }
+    uint16_t RaindetectorStallBizHiThresholdRain () const {
+      return (this->readRegister(0x09, 0) << 8) + this->readRegister(0x0a, 0);
+    }
+    bool RaindetectorStallBizLoThresholdRain (uint16_t value) const {
+      return this->writeRegister(0x0b, (value >> 8) & 0xff) && this->writeRegister(0x0c, value & 0xff);
+    }
+    uint16_t RaindetectorStallBizLoThresholdRain () const {
+      return (this->readRegister(0x0b, 0) << 8) + this->readRegister(0x0c, 0);
+    }
+    bool RaindetectorStallBizHiThresholdHeater (uint16_t value) const {
+      return this->writeRegister(0x0d, (value >> 8) & 0xff) && this->writeRegister(0x0e, value & 0xff);
+    }
+    uint16_t RaindetectorStallBizHiThresholdHeater () const {
+      return (this->readRegister(0x0d, 0) << 8) + this->readRegister(0x0e, 0);
+    }
+    bool RaindetectorStallBizLoThresholdHeater (uint16_t value) const {
+      return this->writeRegister(0x0f, (value >> 8) & 0xff) && this->writeRegister(0x10, value & 0xff);
+    }
+    uint16_t RaindetectorStallBizLoThresholdHeater () const {
+      return (this->readRegister(0x0f, 0) << 8) + this->readRegister(0x10, 0);
+    }
+
+    bool RaindetectorSensorType (uint8_t value) const {
+      return this->writeRegister(0x11, value & 0xff);
+    }
+    uint8_t RaindetectorSensorType () const {
+      return this->readRegister(0x11, 0);
+    }
+
     void defaults () {
       clear();
       AnemometerRadius(65);
@@ -202,6 +257,15 @@ class SensorList1 : public RegList1<Reg1> {
       ExtraMessageOnGustThreshold(0);
       StormUpperThreshold(0);
       StormLowerThreshold(0);
+      RaindetectorSensorType(0);
+      RaindetectorStallBizHiThresholdRain(750);
+      RaindetectorStallBizLoThresholdRain(500);
+      RaindetectorStallBizHiThresholdHeater(500);
+      RaindetectorStallBizLoThresholdHeater(400);
+      LightningDetectorMinStrikes(0);
+      LightningDetectorSpikeRejection(2);
+      LightningDetectorWatchdogThreshold(2);
+      LightningDetectorNoiseFloorLevel(2);
     }
 };
 
@@ -353,34 +417,36 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 
       if (initComplete) {
         if (israining_alarm_count >= RAINDETECTOR_CHECK_INTERVAL) {
-#ifdef USE_RAINDETECTOR_STALLBIZ
-          digitalWrite(RAINDETECTOR_STALLBIZ_CRG_PIN, HIGH);
-          _delay_ms(2);
-          digitalWrite(RAINDETECTOR_STALLBIZ_CRG_PIN, LOW);
-          int rdVal = analogRead(RAINDETECTOR_STALLBIZ_SENS_PIN);
-          DPRINT(F("RD aVal       : ")); DDECLN(rdVal);
+          switch (this->getList1().RaindetectorSensorType()) {
+            case 0:
+              israining = (digitalRead(RAINDETECTOR_PIN) == RAINDETECTOR_PIN_LEVEL_ON_RAIN);
+              break;
+            case 1:
+              digitalWrite(RAINDETECTOR_STALLBIZ_CRG_PIN, HIGH);
+              _delay_ms(2);
+              digitalWrite(RAINDETECTOR_STALLBIZ_CRG_PIN, LOW);
+              int rdVal = analogRead(RAINDETECTOR_STALLBIZ_SENS_PIN);
+              DPRINT(F("RD aVal       : ")); DDECLN(rdVal);
 
-          if (rdVal > RAINDETECTOR_STALLBIZ_RAIN_HI_THRESHOLD) {
-            israining = true;
+              if (rdVal > this->getList1().RaindetectorStallBizHiThresholdRain()) {
+                israining = true;
+              }
+              if (rdVal < (this->getList1().RaindetectorStallBizLoThresholdRain())) {
+                israining = false;
+              }
+
+              static bool mustheat = false;
+              if (rdVal > this->getList1().RaindetectorStallBizHiThresholdHeater()) {
+                mustheat = true;
+              }
+              if (rdVal < (this->getList1().RaindetectorStallBizLoThresholdHeater())) {
+                mustheat = false;
+              }
+              // Taubildung bei +/- 2°C Temperatur um den Taupunkt
+              bool dewfall = bme280.present() ? (abs(bme280.temperature() - bme280.dewPoint()) < 20) : false;
+              // Heizung schalten
+              raindetector_heater(mustheat || dewfall);
           }
-          if (rdVal < (RAINDETECTOR_STALLBIZ_RAIN_LO_THRESHOLD)) {
-            israining = false;
-          }
-          // Heizung einschalten, wenn Messwert > RAINDETECTOR_STALLBIZ_HEAT_THRESHOLD
-          static bool mustheat = false;
-          if (rdVal > RAINDETECTOR_STALLBIZ_HEAT_HI_THRESHOLD) {
-            mustheat = true;
-          }
-          if (rdVal < (RAINDETECTOR_STALLBIZ_HEAT_LO_THRESHOLD)) {
-            mustheat = false;
-          }
-          // Taubildung bei +/- 2°C Temperatur um den Taupunkt
-          bool dewfall = bme280.present() ? (abs(bme280.temperature() - bme280.dewPoint()) < 20) : false;
-          // Heizung schalten
-          raindetector_heater(mustheat || dewfall);
-#else
-          israining = (digitalRead(RAINDETECTOR_PIN) == RAINDETECTOR_PIN_LEVEL_ON_RAIN);
-#endif
 
           DPRINT(F("RD israining  : ")); DDECLN(israining);
 
@@ -401,7 +467,6 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     }
 
     void raindetector_heater(bool State) {
-#ifdef USE_RAINDETECTOR_STALLBIZ
       DPRINT(F("RD HEAT       : ")); DDECLN(State);
       isheating = State;
       digitalWrite(RAINDETECTOR_STALLBIZ_HEAT_PIN, State);
@@ -410,7 +475,6 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
         sendExtraMessage(EVENT_SRC_HEATING);
       }
       washeating = State;
-#endif
     }
 
     void measure_uvindex() {
@@ -488,7 +552,13 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       lightningdistance = random(15);
 #else
       if (!initLightningDetectorDone) {
-        as3935.init(this->getList1().LightningDetectorCapacitor(), this->getList1().LightningDetectorDisturberDetection(), ::Sens_As3935<>::AS3935_ENVIRONMENT_OUTDOOR);
+        as3935.init(this->getList1().LightningDetectorCapacitor(), 
+                    this->getList1().LightningDetectorDisturberDetection(), 
+                    AS3935_ENVIRONMENT, 
+                    this->getList1().LightningDetectorMinStrikes(), 
+                    this->getList1().LightningDetectorWatchdogThreshold(), 
+                    this->getList1().LightningDetectorNoiseFloorLevel(),
+                    this->getList1().LightningDetectorSpikeRejection());
         initLightningDetectorDone = true;
       } else {
         uint8_t lightning_dist_km = 0;
@@ -565,8 +635,28 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       //DPRINTLN(F("* LIGHTNINGDETECTOR    : "));
       //DPRINT(F("*  - CAPACITOR         : ")); DDECLN(this->getList1().LightningDetectorCapacitor());
       //DPRINT(F("*  - DISTURB.DETECTION : ")); DDECLN(this->getList1().LightningDetectorDisturberDetection());
+      //DPRINT(F("*  - WATCHDOGTHRESHOLD : ")); DDECLN(this->getList1().LightningDetectorWatchdogThreshold());
+      //DPRINT(F("*  - SPIKREJECTION     : ")); DDECLN(this->getList1().LightningDetectorSpikeRejection());
+      //DPRINT(F("*  - NOISEFLOORLEVEL   : ")); DDECLN(this->getList1().LightningDetectorNoiseFloorLevel());
+      //DPRINT(F("*  - MINSTRIKES        : ")); DDECLN(this->getList1().LightningDetectorMinStrikes());
       //DPRINT(F("PEERSETTING UPPER  = ")); DDECLN(this->getList1().StormUpperThreshold());
       //DPRINT(F("PEERSETTING LOWER  = ")); DDECLN(this->getList1().StormLowerThreshold());
+      //DPRINT(F("RAINDETECTOR SENSORTYPE  = ")); DDECLN(this->getList1().RaindetectorSensorType());
+      //DPRINT(F("RaindetectorStallBizHiThresholdRain  = ")); DDECLN(this->getList1().RaindetectorStallBizHiThresholdRain());
+      //DPRINT(F("RaindetectorStallBizLoThresholdRain  = ")); DDECLN(this->getList1().RaindetectorStallBizLoThresholdRain());
+      //DPRINT(F("RaindetectorStallBizHiThresholdHeater  = ")); DDECLN(this->getList1().RaindetectorStallBizHiThresholdHeater());
+      //DPRINT(F("RaindetectorStallBizLoThresholdHeater  = ")); DDECLN(this->getList1().RaindetectorStallBizLoThresholdHeater());
+      switch (this->getList1().RaindetectorSensorType()) {
+        case 0:
+          pinMode(RAINDETECTOR_PIN, INPUT_PULLUP);
+          break;
+        case 1:
+          pinMode(RAINDETECTOR_STALLBIZ_CRG_PIN, OUTPUT);
+          pinMode(RAINDETECTOR_STALLBIZ_HEAT_PIN, OUTPUT);
+          pinMode(RAINDETECTOR_STALLBIZ_SENS_PIN, INPUT);
+          break;
+      }
+
       initLightningDetectorDone = false;
     }
 
@@ -598,11 +688,7 @@ SensChannelDevice sdev(devinfo, 0x20);
 ConfigButton<SensChannelDevice> cfgBtn(sdev);
 
 void setup () {
-#ifdef NDEBUG
-  Serial.begin(57600);
-#else
   DINIT(57600, ASKSIN_PLUS_PLUS_IDENTIFIER);
-#endif
   sdev.init(hal);
   buttonISR(cfgBtn, CONFIG_BUTTON_PIN);
   sdev.initDone();
@@ -610,14 +696,6 @@ void setup () {
   pinMode(RAINQUANTITYCOUNTER_PIN, INPUT_PULLUP);
   pinMode(WINDSPEEDCOUNTER_PIN, INPUT_PULLUP);
   pinMode(WINDDIRECTION_PIN, INPUT_PULLUP);
-
-#ifdef USE_RAINDETECTOR_STALLBIZ
-  pinMode(RAINDETECTOR_STALLBIZ_CRG_PIN, OUTPUT);
-  pinMode(RAINDETECTOR_STALLBIZ_HEAT_PIN, OUTPUT);
-  pinMode(RAINDETECTOR_STALLBIZ_SENS_PIN, INPUT);
-#else
-  pinMode(RAINDETECTOR_PIN, INPUT_PULLUP);
-#endif
 
   if ( digitalPinToInterrupt(RAINQUANTITYCOUNTER_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(RAINQUANTITYCOUNTER_PIN, rainquantitycounterISR, RISING); else attachInterrupt(digitalPinToInterrupt(RAINQUANTITYCOUNTER_PIN), rainquantitycounterISR, RISING);
   if ( digitalPinToInterrupt(WINDSPEEDCOUNTER_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(WINDSPEEDCOUNTER_PIN, windspeedcounterISR, RISING); else attachInterrupt(digitalPinToInterrupt(WINDSPEEDCOUNTER_PIN), windspeedcounterISR, RISING);
