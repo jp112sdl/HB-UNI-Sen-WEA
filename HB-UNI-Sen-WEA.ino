@@ -62,6 +62,13 @@ using namespace as;
 volatile uint32_t _rainquantity_isr_counter = 0;
 volatile uint16_t _wind_isr_counter = 0;
 
+void rainquantitycounterISR() {
+  _rainquantity_isr_counter++;
+}
+void windspeedcounterISR() {
+  _wind_isr_counter++;
+}
+
 enum eventMessageSources {EVENT_SRC_RAINING, EVENT_SRC_HEATING, EVENT_SRC_GUST};
 
 const struct DeviceInfo PROGMEM devinfo = {
@@ -552,11 +559,11 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       lightningdistance = random(15);
 #else
       if (!initLightningDetectorDone) {
-        as3935.init(this->getList1().LightningDetectorCapacitor(), 
-                    this->getList1().LightningDetectorDisturberDetection(), 
-                    AS3935_ENVIRONMENT, 
-                    this->getList1().LightningDetectorMinStrikes(), 
-                    this->getList1().LightningDetectorWatchdogThreshold(), 
+        as3935.init(this->getList1().LightningDetectorCapacitor(),
+                    this->getList1().LightningDetectorDisturberDetection(),
+                    AS3935_ENVIRONMENT,
+                    this->getList1().LightningDetectorMinStrikes(),
+                    this->getList1().LightningDetectorWatchdogThreshold(),
                     this->getList1().LightningDetectorNoiseFloorLevel(),
                     this->getList1().LightningDetectorSpikeRejection());
         initLightningDetectorDone = true;
@@ -709,13 +716,6 @@ void loop() {
   }
 }
 
-void rainquantitycounterISR() {
-  _rainquantity_isr_counter++;
-}
-
-void windspeedcounterISR() {
-  _wind_isr_counter++;
-}
 
 
 
