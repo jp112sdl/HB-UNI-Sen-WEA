@@ -7,6 +7,7 @@ before_install:
 install:
   - git clone --branch=master https://github.com/GreyGnome/EnableInterrupt.git /usr/local/share/arduino/libraries/EnableInterrupt
   - git clone --branch=master https://github.com/pa-pa/AskSinPP.git /usr/local/share/arduino/libraries/AskSinPP
+  - git clone --branch=master https://github.com/rocketscream/Low-Power.git /usr/local/share/arduino/libraries/Low-Power
   - git clone --branch=master https://github.com/finitespace/BME280.git /usr/local/share/arduino/libraries/BME280
 script:
   - arduino --verify --board arduino:avr:pro:cpu=8MHzatmega328 $PWD/HB-UNI-Sen-WEA.ino
