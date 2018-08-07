@@ -2,7 +2,7 @@ language: c
 before_install:
   - wget https://downloads.arduino.cc/ide_beta/arduino-1.9.0-beta-linux64.tar.xz
   - tar xf arduino-1.9.0-beta-linux64
-  - sudo mv arduino-1.9.0-beta-linux64 /usr/local/share/arduino
+  - sudo mv arduino-PR-beta1.9-BUILD-78 /usr/local/share/arduino
   - sudo ln -s /usr/local/share/arduino/arduino /usr/local/bin/arduino
 install:
   - git clone --branch=master https://github.com/GreyGnome/EnableInterrupt.git /usr/local/share/arduino/libraries/EnableInterrupt
