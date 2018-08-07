@@ -1,8 +1,8 @@
 language: c
 before_install:
-  - wget http://downloads.arduino.cc/arduino-1.8.1-linux64.tar.xz
-  - tar xf arduino-1.8.1-linux64.tar.xz
-  - sudo mv arduino-1.8.1 /usr/local/share/arduino
+  - wget https://downloads.arduino.cc/ide_beta/arduino-1.9.0-beta-linux64.tar.xz
+  - tar xf arduino-1.9.0-beta-linux64.tar.xz
+  - sudo mv arduino-PR-beta1.9-BUILD-78 /usr/local/share/arduino
   - sudo ln -s /usr/local/share/arduino/arduino /usr/local/bin/arduino
 install:
   - git clone --branch=master https://github.com/GreyGnome/EnableInterrupt.git /usr/local/share/arduino/libraries/EnableInterrupt
@@ -10,7 +10,7 @@ install:
   - git clone --branch=master https://github.com/rocketscream/Low-Power.git /usr/local/share/arduino/libraries/Low-Power
   - git clone --branch=master https://github.com/finitespace/BME280.git /usr/local/share/arduino/libraries/BME280
 script:
-  - arduino --verify --board arduino:avr:pro:cpu=8MHzatmega328 $PWD/HB-UNI-Sen-WEA.ino
+  - arduino --verify --pref update.check=false --board arduino:avr:pro:cpu=8MHzatmega328 $PWD/HB-UNI-Sen-WEA.ino
 notifications:
   email:
     on_success: always
