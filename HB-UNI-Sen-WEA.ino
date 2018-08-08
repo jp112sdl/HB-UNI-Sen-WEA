@@ -7,6 +7,7 @@
 //- -----------------------------------------------------------------------------------------------------------------------
 // #define NDEBUG   // disable all serial debuf messages
 // #define NSENSORS // if defined, only fake values are used
+#define SENSOR_ONLY
 
 #define  EI_NOTEXTERNAL
 #include <EnableInterrupt.h>
