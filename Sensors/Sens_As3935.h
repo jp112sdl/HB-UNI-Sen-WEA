@@ -58,7 +58,7 @@ public:
   }
     
   uint8_t LightningIsrCounter() { return _lightning_isr_counter; }
-  bool ResetLightninIsrCounter() { return _lightning_isr_counter = 0; }
+  bool ResetLightninIsrCounter() { _lightning_isr_counter = 0; return true; }
 
 };
 

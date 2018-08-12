@@ -46,7 +46,7 @@ public:
 
   void measure (uint16_t height) {
     if (_present == true) {
-      float temp(NAN), hum(NAN), pres(NAN), presNN(NAN);
+      float temp(NAN), hum(NAN), pres(NAN);
       _bme280.read(pres, temp, hum, BME280::TempUnit_Celsius, BME280::PresUnit_hPa);
       
       _temperature = (int16_t)(temp * 10);
