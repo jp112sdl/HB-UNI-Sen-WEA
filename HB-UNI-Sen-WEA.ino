@@ -97,10 +97,10 @@ class WeatherEventMsg : public Message {
       pload[5] = brightness & 0xff;
       pload[6] = ((raincounter >> 8) & 0xff) | (israining << 7);
       pload[7] = raincounter & 0xff;
-      pload[8] = (windspeed >> 8) & 0xff | (winddirrange << 6);
+      pload[8] = ((windspeed >> 8) & 0xff) | (winddirrange << 6);
       pload[9] = windspeed & 0xff;
       pload[10] = winddir;
-      pload[11] = (gustspeed >> 8) & 0xff | (isheating << 7);
+      pload[11] = ((gustspeed >> 8) & 0xff) | (isheating << 7);
       pload[12] = gustspeed & 0xff;
       pload[13] = (uvindex & 0xff) | (lightningdistance << 4);
       pload[14] = lightningcounter & 0xff;
@@ -307,7 +307,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     Sens_As3935<AS3935_IRQ_PIN, AS3935_CS_PIN> as3935;
 
   public:
-    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), israining_alarm_count(0), israining(false), initLightningDetectorDone(false), initComplete(false), windspeed(0), uvindex(0), short_interval_measure_count(0), wind_and_uv_measure(*this), lightning_and_raining_check(*this)  {}
+    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), israining(false), windspeed(0), uvindex(0), initComplete(false), initLightningDetectorDone(false), short_interval_measure_count(0), israining_alarm_count(0), wind_and_uv_measure(*this), lightning_and_raining_check(*this)  {}
     virtual ~WeatherChannel () {}
 
     class WindSpeedAndUVMeasureAlarm : public Alarm {
@@ -386,7 +386,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 #endif
       //V = 2 * R * Pi * N
       //  int kmph =  3.141593 * 2 * ((float)anemometerRadius / 100)   * ((float)_wind_isr_counter / (float)WINDSPEED_MEASUREINTERVAL_SECONDS)        * 3.6 * ((float)anemometerCalibrationFactor / 10);
-      int kmph = ((226L * this->getList1().AnemometerRadius() * this->getList1().AnemometerCalibrationFactor() * _wind_isr_counter) / WINDSPEED_MEASUREINTERVAL_SECONDS) / 10000;
+      uint16_t kmph = ((226L * this->getList1().AnemometerRadius() * this->getList1().AnemometerCalibrationFactor() * _wind_isr_counter) / WINDSPEED_MEASUREINTERVAL_SECONDS) / 10000;
       if (kmph > gustspeed) {
         gustspeed = (kmph > GUSTSPEED_MAX) ? GUSTSPEED_MAX : kmph;
       }
@@ -433,7 +433,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
               digitalWrite(RAINDETECTOR_STALLBIZ_CRG_PIN, HIGH);
               _delay_ms(2);
               digitalWrite(RAINDETECTOR_STALLBIZ_CRG_PIN, LOW);
-              int rdVal = analogRead(RAINDETECTOR_STALLBIZ_SENS_PIN);
+              uint16_t rdVal = analogRead(RAINDETECTOR_STALLBIZ_SENS_PIN);
               DPRINT(F("RD aVal       : ")); DDECLN(rdVal);
 
               if (rdVal > this->getList1().RaindetectorStallBizHiThresholdRain()) {
@@ -650,8 +650,8 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       //DPRINT(F("PEERSETTING UPPER  = ")); DDECLN(this->getList1().StormUpperThreshold());
       //DPRINT(F("PEERSETTING LOWER  = ")); DDECLN(this->getList1().StormLowerThreshold());
       //DPRINT(F("RAINDETECTOR SENSORTYPE  = ")); DDECLN(this->getList1().RaindetectorSensorType());
-      //DPRINT(F("RaindetectorStallBizHiThresholdRain  = ")); DDECLN(this->getList1().RaindetectorStallBizHiThresholdRain());
-      //DPRINT(F("RaindetectorStallBizLoThresholdRain  = ")); DDECLN(this->getList1().RaindetectorStallBizLoThresholdRain());
+      //DPRINT(F("RaindetectorStallBizHiThresholdRain    = ")); DDECLN(this->getList1().RaindetectorStallBizHiThresholdRain());
+      //DPRINT(F("RaindetectorStallBizLoThresholdRain    = ")); DDECLN(this->getList1().RaindetectorStallBizLoThresholdRain());
       //DPRINT(F("RaindetectorStallBizHiThresholdHeater  = ")); DDECLN(this->getList1().RaindetectorStallBizHiThresholdHeater());
       //DPRINT(F("RaindetectorStallBizLoThresholdHeater  = ")); DDECLN(this->getList1().RaindetectorStallBizLoThresholdHeater());
       switch (this->getList1().RaindetectorSensorType()) {
@@ -700,7 +700,7 @@ void setup () {
   sdev.init(hal);
   buttonISR(cfgBtn, CONFIG_BUTTON_PIN);
   sdev.initDone();
-
+  //sdev.startPairing();
   pinMode(RAINQUANTITYCOUNTER_PIN, INPUT_PULLUP);
   pinMode(WINDSPEEDCOUNTER_PIN, INPUT_PULLUP);
   pinMode(WINDDIRECTION_PIN, INPUT_PULLUP);
