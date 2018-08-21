@@ -4,4 +4,8 @@
 
 **Die aktuelle Version des Source-Codes setzt mind. [Addon Version V1.9a](https://github.com/jp112sdl/HB-UNI-Sen-WEA/wiki/Addon) oder höher voraus!**
 
-![complete](Images/4.png)
+Besten Dank an [Christoph Herrmann](https://www.facebook.com/hermi.leipzig) für die Zusendung seines Nachbaus:
+![complete](Images/sample1_1.jpg)
+<br/>
+Hier meine Version unter Verwendung eines Huger Regenmengenmessers und noch vor der Installation des Regendetektors:
+![complete_jp](Images/4.png)
