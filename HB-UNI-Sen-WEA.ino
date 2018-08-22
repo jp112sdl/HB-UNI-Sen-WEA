@@ -56,6 +56,8 @@ const uint16_t WINDDIRS[] = { 56, 72, 52, 110, 93, 318, 292, 783, 546, 652, 181,
 #define WINDSPEED_MAX              0x3FFF
 #define GUSTSPEED_MAX              0x7FFF
 #define RAINCOUNTER_MAX            0x7FFF
+#define STORM_COND_VALUE_LO        100
+#define STORM_COND_VALUE_HI        200
 #define PEERS_PER_CHANNEL          4
 
 using namespace as;
@@ -402,23 +404,23 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       //DPRINT(F("UPPER THRESH  : ")); DDECLN(stormUpperThreshold);
       //DPRINT(F("LOWER THRESH  : ")); DDECLN(stormLowerThreshold);
 
-      static uint8_t STORM_PEER_VALUE_Last = 100;
-      static uint8_t STORM_PEER_VALUE      = 100;
+      static uint8_t STORM_COND_VALUE_Last = STORM_COND_VALUE_LO;
+      static uint8_t STORM_COND_VALUE      = STORM_COND_VALUE_LO;
       
       if (stormUpperThreshold > 0) {
         if (kmph >= stormUpperThreshold || kmph <= stormLowerThreshold) {
           static uint8_t evcnt = 0;
-          SensorEventMsg& rmsg = (SensorEventMsg&)device().message();
 
-          if (kmph >= stormUpperThreshold) STORM_PEER_VALUE = 200;
-          if (kmph <= stormLowerThreshold) STORM_PEER_VALUE = 100;
+          if (kmph >= stormUpperThreshold) STORM_COND_VALUE = STORM_COND_VALUE_HI;
+          if (kmph <= stormLowerThreshold) STORM_COND_VALUE = STORM_COND_VALUE_LO;
 
-          if (STORM_PEER_VALUE != STORM_PEER_VALUE_Last) {
-            //DPRINT(F("PEER THRESHOLD DETECTED ")); DDECLN(STORM_PEER_VALUE);
-            rmsg.init(device().nextcount(), number(), evcnt++, STORM_PEER_VALUE, false , false);
+          if (STORM_COND_VALUE != STORM_COND_VALUE_Last) {
+            SensorEventMsg& rmsg = (SensorEventMsg&)device().message();
+            //DPRINT(F("PEER THRESHOLD DETECTED ")); DDECLN(STORM_COND_VALUE);
+            rmsg.init(device().nextcount(), number(), evcnt++, STORM_COND_VALUE, false , false);
             device().sendPeerEvent(rmsg, *this);
           }
-          STORM_PEER_VALUE_Last = STORM_PEER_VALUE;
+          STORM_COND_VALUE_Last = STORM_COND_VALUE;
         }
       }
 
