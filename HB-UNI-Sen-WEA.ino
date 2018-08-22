@@ -294,6 +294,9 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     uint8_t       winddir;
     uint8_t       winddirrange;
 
+    uint16_t      stormUpperThreshold;
+    uint16_t      stormLowerThreshold;
+
     bool          initComplete;
     bool          initLightningDetectorDone;
     uint8_t       short_interval_measure_count;
@@ -307,7 +310,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     Sens_As3935<AS3935_IRQ_PIN, AS3935_CS_PIN> as3935;
 
   public:
-    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), israining(false), windspeed(0), uvindex(0), initComplete(false), initLightningDetectorDone(false), short_interval_measure_count(0), israining_alarm_count(0), wind_and_uv_measure(*this), lightning_and_raining_check(*this)  {}
+    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), israining(false), windspeed(0), uvindex(0), stormUpperThreshold(0), stormLowerThreshold(0), initComplete(false), initLightningDetectorDone(false), short_interval_measure_count(0), israining_alarm_count(0), wind_and_uv_measure(*this), lightning_and_raining_check(*this)  {}
     virtual ~WeatherChannel () {}
 
     class WindSpeedAndUVMeasureAlarm : public Alarm {
@@ -396,18 +399,22 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       }
 
       //DPRINT(F("WIND kmph     : ")); DDECLN(kmph);
+      //DPRINT(F("UPPER THRESH  : ")); DDECLN(stormUpperThreshold);
+      //DPRINT(F("LOWER THRESH  : ")); DDECLN(stormLowerThreshold);
+
       static uint8_t STORM_PEER_VALUE_Last = 0;
       static uint8_t STORM_PEER_VALUE = 0;
       if (peers() > 0) {
-        if (this->getList1().StormUpperThreshold() > 0) {
-          if (kmph >= this->getList1().StormUpperThreshold() || kmph <= this->getList1().StormLowerThreshold()) {
+        if (stormUpperThreshold > 0) {
+          if (kmph >= stormUpperThreshold || kmph <= stormLowerThreshold) {
             static uint8_t evcnt = 0;
             SensorEventMsg& rmsg = (SensorEventMsg&)device().message();
 
-            if (kmph >= this->getList1().StormUpperThreshold()) STORM_PEER_VALUE = 200;
-            if (kmph <= this->getList1().StormLowerThreshold()) STORM_PEER_VALUE = 100;
+            if (kmph >= stormUpperThreshold) STORM_PEER_VALUE = 200;
+            if (kmph <= stormLowerThreshold) STORM_PEER_VALUE = 100;
 
             if (STORM_PEER_VALUE != STORM_PEER_VALUE_Last) {
+              //DPRINT(F("PEER THRESHOLD DETECTED ")); DDECLN(STORM_PEER_VALUE);
               rmsg.init(device().nextcount(), number(), evcnt++, STORM_PEER_VALUE, false , false);
               device().sendPeerEvent(rmsg, *this);
             }
@@ -648,7 +655,9 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       //DPRINT(F("*  - NOISEFLOORLEVEL   : ")); DDECLN(this->getList1().LightningDetectorNoiseFloorLevel());
       //DPRINT(F("*  - MINSTRIKES        : ")); DDECLN(this->getList1().LightningDetectorMinStrikes());
       //DPRINT(F("PEERSETTING UPPER  = ")); DDECLN(this->getList1().StormUpperThreshold());
+      stormUpperThreshold = this->getList1().StormUpperThreshold() * 10;
       //DPRINT(F("PEERSETTING LOWER  = ")); DDECLN(this->getList1().StormLowerThreshold());
+      stormLowerThreshold = this->getList1().StormLowerThreshold() * 10;
       //DPRINT(F("RAINDETECTOR SENSORTYPE  = ")); DDECLN(this->getList1().RaindetectorSensorType());
       //DPRINT(F("RaindetectorStallBizHiThresholdRain    = ")); DDECLN(this->getList1().RaindetectorStallBizHiThresholdRain());
       //DPRINT(F("RaindetectorStallBizLoThresholdRain    = ")); DDECLN(this->getList1().RaindetectorStallBizLoThresholdRain());
@@ -716,7 +725,4 @@ void loop() {
     hal.activity.savePower<Idle<false, true>>(hal);
   }
 }
-
-
-
 
