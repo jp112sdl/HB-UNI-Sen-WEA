@@ -361,7 +361,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       uint8_t msgcnt = device().nextcount();
       msg.init(msgcnt, temperature, airPressure, humidity, brightness, israining, isheating, raincounter, windspeed, winddir, winddirrange, gustspeed, uvindex, lightningcounter, lightningdistance);
       if (msgcnt % 20 == 1) {
-        device().sendPeerEvent(msg, *this);
+        device().sendMasterEvent(msg);
       } else {
         device().broadcastPeerEvent(msg, *this);
       }
@@ -380,7 +380,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       DPRINT(F("SENDING EXTRA MESSAGE ")); DDECLN(t);
       ExtraEventMsg& extramsg = (ExtraEventMsg&)device().message();
       extramsg.init(device().nextcount(), israining, isheating, gustspeed);
-      device().sendPeerEvent(extramsg, *this);
+      device().sendMasterEvent(extramsg);
     }
 
     void measure_windspeed() {
@@ -402,24 +402,23 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       //DPRINT(F("UPPER THRESH  : ")); DDECLN(stormUpperThreshold);
       //DPRINT(F("LOWER THRESH  : ")); DDECLN(stormLowerThreshold);
 
-      static uint8_t STORM_PEER_VALUE_Last = 0;
-      static uint8_t STORM_PEER_VALUE = 0;
-      if (peers() > 0) {
-        if (stormUpperThreshold > 0) {
-          if (kmph >= stormUpperThreshold || kmph <= stormLowerThreshold) {
-            static uint8_t evcnt = 0;
-            SensorEventMsg& rmsg = (SensorEventMsg&)device().message();
+      static uint8_t STORM_PEER_VALUE_Last = 100;
+      static uint8_t STORM_PEER_VALUE      = 100;
+      
+      if (stormUpperThreshold > 0) {
+        if (kmph >= stormUpperThreshold || kmph <= stormLowerThreshold) {
+          static uint8_t evcnt = 0;
+          SensorEventMsg& rmsg = (SensorEventMsg&)device().message();
 
-            if (kmph >= stormUpperThreshold) STORM_PEER_VALUE = 200;
-            if (kmph <= stormLowerThreshold) STORM_PEER_VALUE = 100;
+          if (kmph >= stormUpperThreshold) STORM_PEER_VALUE = 200;
+          if (kmph <= stormLowerThreshold) STORM_PEER_VALUE = 100;
 
-            if (STORM_PEER_VALUE != STORM_PEER_VALUE_Last) {
-              //DPRINT(F("PEER THRESHOLD DETECTED ")); DDECLN(STORM_PEER_VALUE);
-              rmsg.init(device().nextcount(), number(), evcnt++, STORM_PEER_VALUE, false , false);
-              device().sendPeerEvent(rmsg, *this);
-            }
-            STORM_PEER_VALUE_Last = STORM_PEER_VALUE;
+          if (STORM_PEER_VALUE != STORM_PEER_VALUE_Last) {
+            //DPRINT(F("PEER THRESHOLD DETECTED ")); DDECLN(STORM_PEER_VALUE);
+            rmsg.init(device().nextcount(), number(), evcnt++, STORM_PEER_VALUE, false , false);
+            device().sendPeerEvent(rmsg, *this);
           }
+          STORM_PEER_VALUE_Last = STORM_PEER_VALUE;
         }
       }
 
@@ -467,12 +466,10 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 
           if (wasraining != israining) {
             sendExtraMessage(EVENT_SRC_RAINING);
-            if (peers() > 0) {
-              static uint8_t evcnt = 0;
-              SensorEventMsg& rmsg = (SensorEventMsg&)device().message();
-              rmsg.init(device().nextcount(), number(), evcnt++, israining ? 200 : 0, true , false);
-              device().sendPeerEvent(rmsg, *this);
-            }
+            static uint8_t evcnt = 0;
+            SensorEventMsg& rmsg = (SensorEventMsg&)device().message();
+            rmsg.init(device().nextcount(), number(), evcnt++, israining ? 200 : 0, true , false);
+            device().sendPeerEvent(rmsg, *this);
           }
           wasraining = israining;
           israining_alarm_count = 0;
