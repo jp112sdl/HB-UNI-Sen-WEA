@@ -481,10 +481,21 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     }
 
     void raindetector_heater(bool State) {
-      DPRINT(F("RD HEAT       : ")); DDECLN(State);
-      isheating = State;
-      digitalWrite(RAINDETECTOR_STALLBIZ_HEAT_PIN, State);
       static bool washeating = false;
+      static uint8_t pwmval = 0;
+      isheating = State;
+
+      if (State == true) {
+        if (pwmval < 255) pwmval = pwmval + 51;
+      } else {
+        pwmval = 0;
+      }
+      analogWrite(RAINDETECTOR_STALLBIZ_HEAT_PIN, pwmval);
+
+      DPRINT(F("RD HEAT       : ")); DDECLN(State);
+      DPRINT(F("RD HEAT PWM   : ")); DDECLN(pwmval);
+
+
       if (washeating != State) {
         sendExtraMessage(EVENT_SRC_HEATING);
       }
