@@ -25,9 +25,10 @@
 
 ////////// REGENDETEKTOR
 //bei Verwendung der Regensensorplatine von stall.biz (https://www.stall.biz/produkt/regenmelder-sensorplatine)
-#define RAINDETECTOR_STALLBIZ_SENS_PIN            A3   // Pin, an dem der Kondensator angeschlossen ist (hier wird der analoge Wert für die Regenerkennung ermittelt)
-#define RAINDETECTOR_STALLBIZ_CRG_PIN             4    // Pin, an dem der Widerstand für die Kondensatoraufladung angeschlossen is
-#define RAINDETECTOR_STALLBIZ_HEAT_PIN            9    // Pin, an dem der Transistor für die Heizung angeschlossen ist
+#define RAINDETECTOR_STALLBIZ_SENS_PIN       A3   // Pin, an dem der Kondensator angeschlossen ist (hier wird der analoge Wert für die Regenerkennung ermittelt)
+#define RAINDETECTOR_STALLBIZ_CRG_PIN        4    // Pin, an dem der Widerstand für die Kondensatoraufladung angeschlossen is
+#define RAINDETECTOR_STALLBIZ_HEAT_PIN       9    // Pin, an dem der Transistor für die Heizung angeschlossen ist
+#define RAINDETECTOR_STALLBIZ_HEAT_DEWFALL_T 20   // Temperaturschwelle bei aktiviertem "automatisch Heizen bei Erreichen des Taupunkts"; default = 20 (heizen bei +/- 2,0°C um den Taupunkt)
 
 //bei Verwendung eines Regensensors mit H/L-Pegel Ausgang
 #define RAINDETECTOR_PIN                     9    // Pin, an dem der Regendetektor angeschlossen ist
@@ -48,7 +49,7 @@ const uint16_t WINDDIRS[] = { 56, 72, 52, 110, 93, 318, 292, 783, 546, 652, 181,
 #define WINDDIRECTION_PIN                    A2    // Pin, an dem der Windrichtungsanzeiger angeschlossen ist
 
 
-#define WINDSPEED_MEASUREINTERVAL_SECONDS    5     // Messintervall Wind / Böen
+#define WINDSPEED_MEASUREINTERVAL_SECONDS    5     // Messintervall (Sekunden) für Windgeschwindigkeit / Böen
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -145,7 +146,7 @@ class SensorList0 : public RegList0<Reg0> {
     }
 };
 
-DEFREGISTER(Reg1, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15)
+DEFREGISTER(Reg1, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16)
 class SensorList1 : public RegList1<Reg1> {
   public:
     SensorList1 (uint16_t addr) : RegList1<Reg1>(addr) {}
@@ -258,6 +259,13 @@ class SensorList1 : public RegList1<Reg1> {
       return this->readRegister(0x11, 0);
     }
 
+    bool RaindetectorStallBizHeatOnDewfall () const {
+      return this->readBit(0x16, 0, true);
+    }
+    bool RaindetectorStallBizHeatOnDewfall (bool v) const {
+      return this->writeBit(0x16, 0, v);
+    }
+
     void defaults () {
       clear();
       AnemometerRadius(65);
@@ -272,6 +280,7 @@ class SensorList1 : public RegList1<Reg1> {
       RaindetectorStallBizLoThresholdRain(500);
       RaindetectorStallBizHiThresholdHeater(500);
       RaindetectorStallBizLoThresholdHeater(400);
+      RaindetectorStallBizHeatOnDewfall(true);
       LightningDetectorMinStrikes(0);
       LightningDetectorSpikeRejection(2);
       LightningDetectorWatchdogThreshold(2);
@@ -458,8 +467,11 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
               if (rdVal < (this->getList1().RaindetectorStallBizLoThresholdHeater())) {
                 mustheat = false;
               }
-              // Taubildung bei +/- 2°C Temperatur um den Taupunkt
-              bool dewfall = bme280.present() ? (abs(bme280.temperature() - bme280.dewPoint()) < 20) : false;
+
+              bool dewfall = false;
+              if (this->getList1().RaindetectorStallBizHeatOnDewfall() == true)
+                dewfall = bme280.present() ? (abs(bme280.temperature() - bme280.dewPoint()) < RAINDETECTOR_STALLBIZ_HEAT_DEWFALL_T) : false;
+
               // Heizung schalten
               raindetector_heater(mustheat || dewfall);
           }
