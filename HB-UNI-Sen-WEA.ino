@@ -685,6 +685,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       //DPRINT(F("RaindetectorStallBizLoThresholdRain    = ")); DDECLN(this->getList1().RaindetectorStallBizLoThresholdRain());
       //DPRINT(F("RaindetectorStallBizHiThresholdHeater  = ")); DDECLN(this->getList1().RaindetectorStallBizHiThresholdHeater());
       //DPRINT(F("RaindetectorStallBizLoThresholdHeater  = ")); DDECLN(this->getList1().RaindetectorStallBizLoThresholdHeater());
+      //DPRINT(F("RaindetectorStallBizHeatOnDewfall      = ")); DDECLN(this->getList1().RaindetectorStallBizHeatOnDewfall());
       switch (this->getList1().RaindetectorSensorType()) {
         case 0:
           pinMode(RAINDETECTOR_PIN, INPUT_PULLUP);
