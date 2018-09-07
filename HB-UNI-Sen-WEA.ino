@@ -45,7 +45,9 @@
 #define AS3935_ENVIRONMENT                   ::Sens_As3935<>::AS3935_ENVIRONMENT_OUTDOOR
 //                             N                      O                       S                         W
 //entspricht Windrichtung in ° 0 , 22.5, 45  , 67.5, 90  ,112.5, 135, 157.5, 180 , 202.5, 225 , 247.5, 270 , 292.5, 315 , 337.5
-const uint16_t WINDDIRS[] = { 56, 72, 52, 110, 93, 318, 292, 783, 546, 652, 181, 197, 158, 408, 125, 147 };
+//const uint16_t WINDDIRS[] = { 56, 72, 52, 110, 93, 318, 292, 783, 546, 652, 181, 197, 158, 408, 125, 147 };
+const uint16_t WINDDIRS[] = { 58, 74, 52, 115, 97, 328, 302, 790, 559, 663, 187, 205, 163, 420, 129, 153 };
+
 #define WINDDIRECTION_PIN                    A2    // Pin, an dem der Windrichtungsanzeiger angeschlossen ist
 
 
@@ -456,7 +458,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
               if (rdVal > this->getList1().RaindetectorStallBizHiThresholdRain()) {
                 israining = true;
               }
-              if (rdVal < (this->getList1().RaindetectorStallBizLoThresholdRain())) {
+              if (rdVal < this->getList1().RaindetectorStallBizLoThresholdRain()) {
                 israining = false;
               }
 
@@ -549,7 +551,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
           break;
         }
       }
-      //DPRINT(F("WINDDIR aVal  : ")); DDEC(aVal); DPRINT(F(" i = ")); DDECLN(idxwdir);
+      //DPRINT(F("WINDDIR aVal  : ")); DDEC(aVal); DPRINT(F(" :: tolerance = ")); DDECLN(WINDDIR_TOLERANCE); DPRINT(F(" :: i = ")); DDECLN(idxwdir);
 #endif
 
       //Schwankungsbreite
@@ -745,7 +747,7 @@ void loop() {
   bool worked = hal.runready();
   bool poll = sdev.pollRadio();
   if ( worked == false && poll == false ) {
-    hal.activity.savePower<Idle<false, true>>(hal);
+   // hal.activity.savePower<Idle<false, true>>(hal);
   }
 }
 
