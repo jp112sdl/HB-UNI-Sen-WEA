@@ -1,17 +1,21 @@
 #include <EnableInterrupt.h>
 
-const uint16_t WINDDIRS[] = { 56, 72, 52, 110, 93, 318, 292, 783, 546, 652, 181, 197, 158, 408, 125, 147 };
+const uint16_t WINDDIRS[] = { 58, 74, 52, 115, 97, 328, 302, 790, 559, 663, 187, 205, 163, 420, 129, 153 };
 #define WINDDIRECTION_PIN   A2
 #define WINDCOUNTER_PIN     5
+#define RAINQUANTITYCOUNTER_PIN              6     // Regenmengenmesser
 volatile int _windcounter = 0;
 int lastWindcounter = 0;
+int lastRaincounter = 0;
+volatile uint32_t _rainquantity_isr_counter = 0;
 
 void setup() {
   Serial.begin(57600);
   pinMode(WINDDIRECTION_PIN, INPUT_PULLUP);
+  pinMode(RAINQUANTITYCOUNTER_PIN, INPUT_PULLUP);
   // put your setup code here, to run once:
   if ( digitalPinToInterrupt(WINDCOUNTER_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(WINDCOUNTER_PIN, windcounterISR, RISING); else attachInterrupt(digitalPinToInterrupt(WINDCOUNTER_PIN), windcounterISR, RISING);
-
+  if ( digitalPinToInterrupt(RAINQUANTITYCOUNTER_PIN) == NOT_AN_INTERRUPT ) enableInterrupt(RAINQUANTITYCOUNTER_PIN, rainquantitycounterISR, RISING); else attachInterrupt(digitalPinToInterrupt(RAINQUANTITYCOUNTER_PIN), rainquantitycounterISR, RISING);
 }
 
 void loop() {
@@ -43,8 +47,18 @@ void loop() {
     Serial.println("windcounter = " + String(_windcounter));
   }
 
+  
+  if (lastRaincounter != _rainquantity_isr_counter) {
+    lastRaincounter = _rainquantity_isr_counter;
+    Serial.println("raincounter = " + String(_rainquantity_isr_counter));
+  }
+
 }
 
 void windcounterISR() {
   _windcounter++;
+}
+
+void rainquantitycounterISR() {
+  _rainquantity_isr_counter++;
 }
