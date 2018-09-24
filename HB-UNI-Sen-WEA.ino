@@ -417,7 +417,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 
       static uint8_t STORM_COND_VALUE_Last = STORM_COND_VALUE_LO;
       static uint8_t STORM_COND_VALUE      = STORM_COND_VALUE_LO;
-      
+
       if (stormUpperThreshold > 0) {
         if (kmph >= stormUpperThreshold || kmph <= stormLowerThreshold) {
           static uint8_t evcnt = 0;
@@ -453,7 +453,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
               _delay_ms(2);
               digitalWrite(RAINDETECTOR_STALLBIZ_CRG_PIN, LOW);
               uint16_t rdVal = analogRead(RAINDETECTOR_STALLBIZ_SENS_PIN);
-              DPRINT(F("RD aVal       : ")); DDECLN(rdVal);
+              //DPRINT(F("RD aVal       : ")); DDECLN(rdVal);
 
               if (rdVal > this->getList1().RaindetectorStallBizHiThresholdRain()) {
                 israining = true;
@@ -478,7 +478,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
               raindetector_heater(mustheat || dewfall);
           }
 
-          DPRINT(F("RD israining  : ")); DDECLN(israining);
+          //DPRINT(F("RD israining  : ")); DDECLN(israining);
 
           if (wasraining != israining) {
             sendExtraMessage(EVENT_SRC_RAINING);
@@ -506,8 +506,8 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       }
       analogWrite(RAINDETECTOR_STALLBIZ_HEAT_PIN, pwmval);
 
-      DPRINT(F("RD HEAT       : ")); DDECLN(State);
-      DPRINT(F("RD HEAT PWM   : ")); DDECLN(pwmval);
+      //DPRINT(F("RD HEAT       : ")); DDECLN(State);
+      //DPRINT(F("RD HEAT PWM   : ")); DDECLN(pwmval);
 
 
       if (washeating != State) {
@@ -551,7 +551,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
           break;
         }
       }
-      //DPRINT(F("WINDDIR aVal  : ")); DDEC(aVal); DPRINT(F(" :: tolerance = ")); DDECLN(WINDDIR_TOLERANCE); DPRINT(F(" :: i = ")); DDECLN(idxwdir);
+      //DPRINT(F("WINDDIR aVal  : ")); DDEC(aVal); DPRINT(F(" :: tolerance = ")); DDEC(WINDDIR_TOLERANCE); DPRINT(F(" :: i = ")); DDECLN(idxwdir);
 #endif
 
       //Schwankungsbreite
