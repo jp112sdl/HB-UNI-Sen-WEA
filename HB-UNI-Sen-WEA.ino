@@ -582,7 +582,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
         }
         raincounter = _rainquantity_isr_counter;
       }
-      DPRINT(F("RAINCOUNTER   : ")); DDECLN(_rainquantity_isr_counter);
+      //DPRINT(F("RAINCOUNTER   : ")); DDECLN(_rainquantity_isr_counter);
     }
 
     void measure_lightning() {
@@ -747,7 +747,7 @@ void loop() {
   bool worked = hal.runready();
   bool poll = sdev.pollRadio();
   if ( worked == false && poll == false ) {
-   // hal.activity.savePower<Idle<false, true>>(hal);
+    // hal.activity.savePower<Idle<false, true>>(hal);
   }
 }
 
