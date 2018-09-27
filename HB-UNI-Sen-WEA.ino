@@ -43,13 +43,18 @@
 #define AS3935_IRQ_PIN                       3     // IRQ Pin des Blitzdetektors
 #define AS3935_CS_PIN                        7     // CS Pin des Blitzdetektors
 #define AS3935_ENVIRONMENT                   ::Sens_As3935<>::AS3935_ENVIRONMENT_OUTDOOR
-//                             N                      O                       S                         W
-//entspricht Windrichtung in ° 0 , 22.5, 45  , 67.5, 90  ,112.5, 135, 157.5, 180 , 202.5, 225 , 247.5, 270 , 292.5, 315 , 337.5
-//const uint16_t WINDDIRS[] = { 56, 72, 52, 110, 93, 318, 292, 783, 546, 652, 181, 197, 158, 408, 125, 147 };
-const uint16_t WINDDIRS[] = { 58, 74, 52, 115, 97, 328, 302, 790, 559, 663, 187, 205, 163, 420, 129, 153 };
+
 
 #define WINDDIRECTION_PIN                    A2    // Pin, an dem der Windrichtungsanzeiger angeschlossen ist
+//#define WINDDIRECTION_USE_PULSE
 
+//                             N                      O                       S                         W
+//entspricht Windrichtung in ° 0 , 22.5, 45  , 67.5, 90  ,112.5, 135, 157.5, 180 , 202.5, 225 , 247.5, 270 , 292.5, 315 , 337.5
+#ifdef WINDDIRECTION_USE_PULSE
+const uint16_t WINDDIRS[] = { 70, 78, 86, 94, 102, 108, 116, 0, 8, 16, 24, 32, 40, 48, 56, 62 };
+#else
+const uint16_t WINDDIRS[] = { 58, 74, 52, 115, 97, 328, 302, 790, 559, 663, 187, 205, 163, 420, 129, 153 };
+#endif
 
 #define WINDSPEED_MEASUREINTERVAL_SECONDS    5     // Messintervall (Sekunden) für Windgeschwindigkeit / Böen
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -534,6 +539,13 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       idxwdir = random(15);
       winddir = (idxwdir * 15 + 2 / 2) / 2;
 #else
+
+#ifdef WINDDIRECTION_USE_PULSE
+      uint8_t aVal = 0;
+      uint8_t WINDDIR_TOLERANCE = 3;
+      aVal = pulseIn(WINDDIRECTION_PIN, HIGH, 1000);
+      DPRINT("AVAL = ");DDECLN(aVal);
+#else
       uint16_t aVal = 0;
       for (uint8_t i = 0; i <= 0xf; i++) {
         aVal += analogRead(WINDDIRECTION_PIN);
@@ -543,6 +555,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       uint8_t WINDDIR_TOLERANCE = 2;
       if ((aVal > 100) && (aVal < 250)) WINDDIR_TOLERANCE = 5;
       if (aVal >= 250) WINDDIR_TOLERANCE = 10;
+#endif
 
       for (uint8_t i = 0; i < sizeof(WINDDIRS) / sizeof(uint16_t); i++) {
         if (aVal < WINDDIRS[i] + WINDDIR_TOLERANCE && aVal > WINDDIRS[i] - WINDDIR_TOLERANCE) {
@@ -551,7 +564,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
           break;
         }
       }
-      //DPRINT(F("WINDDIR aVal  : ")); DDEC(aVal); DPRINT(F(" :: tolerance = ")); DDEC(WINDDIR_TOLERANCE); DPRINT(F(" :: i = ")); DDECLN(idxwdir);
+      DPRINT(F("WINDDIR aVal  : ")); DDEC(aVal); DPRINT(F(" :: tolerance = ")); DDEC(WINDDIR_TOLERANCE); DPRINT(F(" :: i = ")); DDECLN(idxwdir);
 #endif
 
       //Schwankungsbreite
