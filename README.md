@@ -3,7 +3,7 @@
 ### Die Dokumentation zu diesem Projekt findet ihr im -> [Wiki](https://github.com/jp112sdl/HB-UNI-Sen-WEA/wiki).
 
 **Hinweise:**
-  - **die aktuelle Version des Source-Codes setzt mind. [Addon Version V1.9a](https://github.com/jp112sdl/HB-UNI-Sen-WEA/wiki/Addon) oder höher voraus!**
+  - **die aktuelle Version des Source-Codes setzt mind. [Addon Version V1.20](https://github.com/jp112sdl/HB-UNI-Sen-WEA/wiki/Addon) oder höher voraus!**
   - **vor dem Flashen des Codes immer auf die neueste AskSinPP(-master) Bibliothek aktualisieren**
 
 Besten Dank an [Christoph Herrmann](https://www.facebook.com/hermi.leipzig) für die Zusendung seines Nachbaus:
