@@ -305,7 +305,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     uint16_t      raincounter;
     uint16_t      windspeed;
     uint16_t      gustspeed;
-    uint8_t       uvindex;
+    uint16_t      uvindex;
     uint8_t       lightningcounter;
     uint8_t       lightningdistance;
 
