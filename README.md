@@ -6,7 +6,7 @@
   - **die aktuelle Version des Source-Codes setzt mind. [Addon Version V1.20](https://github.com/jp112sdl/HB-UNI-Sen-WEA/wiki/Addon) oder höher voraus!**
   - **vor dem Flashen des Codes immer auf die neueste AskSinPP(-master) Bibliothek aktualisieren**
 
-Besten Dank an [Christoph Herrmann](https://www.facebook.com/hermi.leipzig) für die Zusendung seines Nachbaus:
+Besten Dank an [Christoph Herrmann](https://www.facebook.com/hermi.leipzig) für die Zusendung seines Nachbaus ([Thingiverse-Link](https://www.thingiverse.com/thing:3173141)):
 ![complete](Images/sample1_1.jpg)
 <br/>
 Hier meine Version unter Verwendung eines Huger Regenmengenmessers und noch vor der Installation des Regendetektors:
