@@ -381,7 +381,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       if (msgcnt % 20 == 1) {
         device().sendMasterEvent(msg);
       } else {
-        device().broadcastPeerEvent(msg, *this);
+        device().broadcastEvent(msg, *this);
       }
       uint16_t updCycle = this->device().getList0().updIntervall();
       tick = seconds2ticks(updCycle);
