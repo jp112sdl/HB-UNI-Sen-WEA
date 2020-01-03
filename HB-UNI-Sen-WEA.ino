@@ -546,12 +546,21 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       winddir = (idxwdir * 15 + 2 / 2) / 2;
 #else
 
+
+#ifdef WINDDIRECTION_USE_AS5600
+      as5600.measure();
+      winddir = as5600.angle() / 3;
+      DPRINT(F("WINDDIR angle  : ")); DDECLN(as5600.angle());
+
+#endif
+
 #ifdef WINDDIRECTION_USE_PULSE
       uint8_t aVal = 0;
       uint8_t WINDDIR_TOLERANCE = 3;
       aVal = pulseIn(WINDDIRECTION_PIN, HIGH, 1000);
       DPRINT("AVAL = ");DDECLN(aVal);
-#else
+#endif
+#ifdef WINDDIRECTION_USE_RESISTOR
       uint16_t aVal = 0;
       for (uint8_t i = 0; i <= 0xf; i++) {
         aVal += analogRead(WINDDIRECTION_PIN);
@@ -563,6 +572,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       if (aVal >= 250) WINDDIR_TOLERANCE = 10;
 #endif
 
+#ifndef WINDDIRECTION_USE_AS5600
       for (uint8_t i = 0; i < sizeof(WINDDIRS) / sizeof(uint16_t); i++) {
         if (aVal < WINDDIRS[i] + WINDDIR_TOLERANCE && aVal > WINDDIRS[i] - WINDDIR_TOLERANCE) {
           idxwdir = i;
@@ -570,13 +580,10 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
           break;
         }
       }
-
-#ifdef WINDDIRECTION_USE_AS5600
-      as5600.measure();
-      winddir = as5600.angle() / 3;
+      DPRINT(F("WINDDIR aVal  : ")); DDEC(aVal); DPRINT(F(" :: tolerance = ")); DDEC(WINDDIR_TOLERANCE); DPRINT(F(" :: i = ")); DDECLN(idxwdir);
 #endif
 
-      DPRINT(F("WINDDIR aVal  : ")); DDEC(aVal); DPRINT(F(" :: tolerance = ")); DDEC(WINDDIR_TOLERANCE); DPRINT(F(" :: i = ")); DDECLN(idxwdir);
+
 #endif
 
       //Schwankungsbreite
