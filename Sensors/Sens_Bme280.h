@@ -16,13 +16,12 @@ class Sens_Bme280 : public Sensor {
   uint16_t  _pressureNN;
   uint8_t   _humidity;
   uint16_t  _dewPoint;
-;
 
   BME280I2C _bme280;    		// Default : forced mode, standby time = 1000 ms, Oversampling = pressure ×1, temperature ×1, humidity ×1, filter off
 
 public:
 
-  Sens_Bme280 () {}
+  Sens_Bme280 () : _temperature(0), _pressure(0), _pressureNN(0), _humidity(0), _dewPoint(0) {}
 
   void init () {
 

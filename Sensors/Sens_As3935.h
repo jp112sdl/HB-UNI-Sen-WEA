@@ -22,7 +22,7 @@ class Sens_As3935 : public Sensor {
     ::PWF_AS3935 _lightningDetector;
     uint8_t _interrupt_src;
 public:
-  Sens_As3935 () : _lightningDetector(_AS3935_CS_PIN, _AS3935_IRQ_PIN) {}
+  Sens_As3935 () : _lightningDetector(_AS3935_CS_PIN, _AS3935_IRQ_PIN), _interrupt_src(0) {}
     enum _AS3935_ENVIRONMENT {
         AS3935_ENVIRONMENT_OUTDOOR,
         AS3935_ENVIRONMENT_INDOOR
