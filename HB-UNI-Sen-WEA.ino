@@ -20,6 +20,7 @@
 #include <sensors/Veml6070.h>
 #include "Sensors/Sens_Bme280.h"
 #include "Sensors/Sens_As3935.h"
+#include "Sensors/Sens_As5600.h"
 
 #define CONFIG_BUTTON_PIN                    8     // Anlerntaster-Pin
 
@@ -46,7 +47,9 @@
 
 
 #define WINDDIRECTION_PIN                    A2    // Pin, an dem der Windrichtungsanzeiger angeschlossen ist
+#define WINDDIRECTION_USE_RESISTORS
 //#define WINDDIRECTION_USE_PULSE
+//#define WINDDIRECTION_USE_AS5600
 
 //                             N                      O                       S                         W
 //entspricht Windrichtung in ° 0 , 22.5, 45  , 67.5, 90  ,112.5, 135, 157.5, 180 , 202.5, 225 , 247.5, 270 , 292.5, 315 , 337.5
@@ -323,6 +326,9 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     Sens_Bme280                 bme280;
     Veml6070<VEML6070_1_T>      veml6070;
     MAX44009<>                  max44009;
+#ifdef WINDDIRECTION_USE_AS5600
+    Sens_As5600                 as5600;
+#endif
 
   public:
     Sens_As3935<AS3935_IRQ_PIN, AS3935_CS_PIN> as3935;
@@ -564,6 +570,12 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
           break;
         }
       }
+
+#ifdef WINDDIRECTION_USE_AS5600
+      as5600.measure();
+      winddir = as5600.angle() / 3;
+#endif
+
       DPRINT(F("WINDDIR aVal  : ")); DDEC(aVal); DPRINT(F(" :: tolerance = ")); DDEC(WINDDIR_TOLERANCE); DPRINT(F(" :: i = ")); DDECLN(idxwdir);
 #endif
 
@@ -673,6 +685,9 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       bme280.init();
       veml6070.init();
 #endif
+#ifdef WINDDIRECTION_USE_AS5600
+      as5600.init();
+#endif
       sysclock.add(*this);
       sysclock.add(wind_and_uv_measure);
       sysclock.add(lightning_and_raining_check);
@@ -763,4 +778,3 @@ void loop() {
     // hal.activity.savePower<Idle<false, true>>(hal);
   }
 }
-
