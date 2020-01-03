@@ -560,7 +560,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       aVal = pulseIn(WINDDIRECTION_PIN, HIGH, 1000);
       DPRINT("AVAL = ");DDECLN(aVal);
 #endif
-#ifdef WINDDIRECTION_USE_RESISTOR
+#ifdef WINDDIRECTION_USE_RESISTORS
       uint16_t aVal = 0;
       for (uint8_t i = 0; i <= 0xf; i++) {
         aVal += analogRead(WINDDIRECTION_PIN);
