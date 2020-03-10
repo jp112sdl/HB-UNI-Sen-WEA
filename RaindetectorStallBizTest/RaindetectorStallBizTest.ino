@@ -18,10 +18,10 @@ void loop() {
     /* toggle heating every 10 cycles */
     if (digitalRead(RAINDETECTOR_HEATING_PIN) == LOW) {
       digitalWrite(RAINDETECTOR_HEATING_PIN, HIGH);
-      Serial.println("Heating switched on! " + String(count));
+      Serial.println("Heating switched on!");
     } else {
       digitalWrite(RAINDETECTOR_HEATING_PIN, LOW);
-      Serial.println("Heating switched off! " + String(count));
+      Serial.println("Heating switched off!");
     }
   }
   
