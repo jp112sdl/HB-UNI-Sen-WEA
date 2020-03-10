@@ -123,7 +123,6 @@ int tuneAntenna(byte tuneCapacitor)
   return currentcount;
 }
 void setup() {
-  pinMode(3, INPUT);
   digitalWrite(CSpin, HIGH);
   pinMode(CSpin, OUTPUT);
   pinMode(IRQpin, INPUT);
