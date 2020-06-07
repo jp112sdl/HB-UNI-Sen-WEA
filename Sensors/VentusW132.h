@@ -48,6 +48,7 @@ class VentusW132 {
       if (state == SW_MASK) return 75;      
       if (state ==  W_MASK) return 90;      
       if (state == NW_MASK) return 105;  
+      return 0;
     }    
 };
 
