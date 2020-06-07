@@ -21,8 +21,8 @@ class VentusW132 {
 
     void init () {
       pins[0] = N_PIN;
-      pins[1] = S_PIN;
-      pins[2] = O_PIN;
+      pins[1] = O_PIN;
+      pins[2] = S_PIN;
       pins[3] = W_PIN;
       
       for (uint8_t i = 0; i < 4; i++) 
