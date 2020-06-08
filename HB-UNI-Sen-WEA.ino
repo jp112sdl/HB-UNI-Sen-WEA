@@ -56,10 +56,12 @@
 #define VENTUSW132_PIN_S                     A2    // des Ventus W132
 #define VENTUSW132_PIN_W                     A6    // Ersatz-Windmessers
 
+//                             N                      O                           S                           W
+//entspricht Windrichtung in ° 0 , 22.5 , 45 , 67.5 , 90 , 112.5 , 135 , 157.5 , 180 , 202.5 , 225 , 247.5 , 270 , 292.5 , 315 , 337.5
 #ifdef WINDDIRECTION_USE_PULSE
-const uint16_t WINDDIRS[] = { 70, 78, 86, 94, 102, 108, 116, 0, 8, 16, 24, 32, 40, 48, 56, 62 };
+const uint16_t WINDDIRS[] = { 70 ,   78 , 86 , 94   , 102,  108  , 116 ,    0  , 8   , 16    , 24  , 32    , 40  ,   48  , 56  , 62 };
 #else
-const uint16_t WINDDIRS[] = { 58, 74, 52, 115, 97, 328, 302, 790, 559, 663, 187, 205, 163, 420, 129, 153 };
+const uint16_t WINDDIRS[] = { 58 ,   74 , 52 , 115  , 97 ,  328  , 302 ,  790  , 559 , 663   , 187 , 205   , 163 ,  420  , 129 , 153 };
 #endif
 
 #define WINDSPEED_MEASUREINTERVAL_SECONDS    5     // Messintervall (Sekunden) für Windgeschwindigkeit / Böen
@@ -337,7 +339,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     Sens_As3935<AS3935_IRQ_PIN, AS3935_CS_PIN> as3935;
 
   public:
-    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), israining(false), windspeed(0), uvindex(0), stormUpperThreshold(0), stormLowerThreshold(0), initComplete(false), initLightningDetectorDone(false), short_interval_measure_count(0), israining_alarm_count(0), wind_and_uv_measure(*this), lightning_and_raining_check(*this)  {}
+    WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), temperature(0), airPressure(0), humidity(0), brightness(0), israining(false), isheating(false), raincounter(0), windspeed(0), gustspeed(0), uvindex(0), lightningcounter(0), lightningdistance(0), winddir(0), winddirrange(0), stormUpperThreshold(0), stormLowerThreshold(0), initComplete(false), initLightningDetectorDone(false), short_interval_measure_count(0), israining_alarm_count(0), wind_and_uv_measure(*this), lightning_and_raining_check(*this)  {}
     virtual ~WeatherChannel () {}
 
     class WindSpeedAndUVMeasureAlarm : public Alarm {
@@ -390,7 +392,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       if (msgcnt % 20 == 1) {
         device().sendMasterEvent(msg);
       } else {
-        device().broadcastEvent(msg, *this);
+        device().broadcastEvent(msg);
       }
       uint16_t updCycle = this->device().getList0().updIntervall();
       tick = seconds2ticks(updCycle);
