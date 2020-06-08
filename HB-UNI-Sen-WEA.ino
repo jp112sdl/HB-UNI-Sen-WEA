@@ -334,6 +334,9 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 #ifdef WINDDIRECTION_USE_AS5600
     Sens_As5600                 as5600;
 #endif
+#ifdef WINDDIRECTION_USE_VENTUSW132
+    VentusW132<VENTUSW132_PIN_N, VENTUSW132_PIN_O, VENTUSW132_PIN_S, VENTUSW132_PIN_W> ventus;
+#endif
 
   public:
     Sens_As3935<AS3935_IRQ_PIN, AS3935_CS_PIN> as3935;
