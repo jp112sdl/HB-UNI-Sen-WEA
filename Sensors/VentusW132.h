@@ -35,10 +35,10 @@ class VentusW132 {
       for (uint8_t i = 0; i < 4; i++) {
         bool p = (pins[i] == A6 || pins[i] == A7) ? (analogRead(pins[i]) > 500) : digitalRead(pins[i]);
         state |= p << i;
-        DPRINT(F("read pin("));DDEC(pins[i]);DPRINT(") = ");DDECLN(p);
+        //DPRINT(F("read pin("));DDEC(pins[i]);DPRINT(") = ");DDECLN(p);
       }
 
-      DPRINT(F("state="));DHEXLN(state);
+      //DPRINT(F("state="));DHEXLN(state);
 
       if (state ==  N_MASK) return 0;
       if (state == NO_MASK) return 15;
