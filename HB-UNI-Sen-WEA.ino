@@ -60,8 +60,16 @@
 //entspricht Windrichtung in ° 0 , 22.5 , 45 , 67.5 , 90 , 112.5 , 135 , 157.5 , 180 , 202.5 , 225 , 247.5 , 270 , 292.5 , 315 , 337.5
 #ifdef WINDDIRECTION_USE_PULSE
 const uint16_t WINDDIRS[] = { 70 ,   78 , 86 , 94   , 102,  108  , 116 ,    0  , 8   , 16    , 24  , 32    , 40  ,   48  , 56  , 62 };
-#else
+#endif
+#ifdef WINDDIRECTION_USE_RESISTORS
 const uint16_t WINDDIRS[] = { 58 ,   74 , 52 , 115  , 97 ,  328  , 302 ,  790  , 559 , 663   , 187 , 205   , 163 ,  420  , 129 , 153 };
+#endif
+#ifdef WINDDIRECTION_USE_VENTUSW132
+           //direction index  0   1   2    3    4    5    6    7
+const uint16_t WINDDIRS[] = { 0, 45, 90, 135, 180, 225, 270, 315 };
+#endif
+#ifdef WINDDIRECTION_USE_AS5600
+const uint16_t WINDDIRS[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 #endif
 
 #define WINDSPEED_MEASUREINTERVAL_SECONDS    5     // Messintervall (Sekunden) für Windgeschwindigkeit / Böen
@@ -563,8 +571,9 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 #endif
 
 #ifdef WINDDIRECTION_USE_VENTUSW132
-      winddir = ventus.winddirValue();
-      idxwdir = winddir * 10 / 75;
+      //winddir = ventus.winddirValue();
+      idxwdir = ventus.winddirValue(true);
+      winddir = WINDDIRS[idxwdir] / 3;
       DPRINT(F("WINDDIR value (=dir / 3) : ")); DDECLN(winddir);
 #endif
 
@@ -606,8 +615,10 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       winddirrange = 3; // 0  - 3 (0, 22,5, 45, 67,5°)
       int idxdiff = abs(idxwdir - idxoldwdir);
 
+      uint8_t num_winddirs = sizeof(WINDDIRS) / sizeof(uint16_t);
+
       if (idxdiff <= 3) winddirrange = idxdiff;
-      if (idxwdir <= 2 && idxoldwdir >= 13) winddirrange = (sizeof(WINDDIRS) / sizeof(uint16_t)) - idxdiff;
+      if (idxwdir <= 2 && idxoldwdir >= (num_winddirs-3)) winddirrange = num_winddirs - idxdiff;
       if (winddirrange > 3) winddirrange = 3;
 
       idxoldwdir = idxwdir;
