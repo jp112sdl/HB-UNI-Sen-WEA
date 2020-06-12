@@ -11,7 +11,7 @@
 
 #define  EI_NOTEXTERNAL
 #include <EnableInterrupt.h>
-#include <SPI.h>  // after including SPI Library - we can use LibSPI class
+#include <SPI.h>
 #include <AskSinPP.h>
 #include <Register.h>
 
@@ -42,9 +42,10 @@
 #define WINDSPEEDCOUNTER_PIN                 5     // Anemometer
 #define RAINQUANTITYCOUNTER_PIN              6     // Regenmengenmesser
 
-#define AS3935_IRQ_PIN                       3     // IRQ Pin des Blitzdetektors
-#define AS3935_CS_PIN                        7     // CS Pin des Blitzdetektors
+
 #define AS3935_ENVIRONMENT                   ::Sens_As3935<>::AS3935_ENVIRONMENT_OUTDOOR
+#define AS3935_IRQ_PIN                       3     // IRQ Pin des Blitzdetektors
+#define AS3935_CS_PIN_OR_ADDR                7     // SPI: CS Pin / I2C: Address (default: 0x03)
 
 #define WINDDIRECTION_PIN                    A2    // Pin, an dem der Windrichtungsanzeiger (RESISTORS oder PULSE) angeschlossen ist
 #define WINDDIRECTION_USE_RESISTORS
@@ -347,8 +348,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 #endif
 
   public:
-    Sens_As3935<AS3935_IRQ_PIN, AS3935_CS_PIN> as3935;
-
+    Sens_As3935<AS3935_CS_PIN_OR_ADDR, AS3935_IRQ_PIN> as3935;
   public:
     WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), temperature(0), airPressure(0), humidity(0), brightness(0), israining(false), isheating(false), raincounter(0), windspeed(0), gustspeed(0), uvindex(0), lightningcounter(0), lightningdistance(0), winddir(0), winddirrange(0), stormUpperThreshold(0), stormLowerThreshold(0), initComplete(false), initLightningDetectorDone(false), short_interval_measure_count(0), israining_alarm_count(0), wind_and_uv_measure(*this), lightning_and_raining_check(*this)  {}
     virtual ~WeatherChannel () {}
