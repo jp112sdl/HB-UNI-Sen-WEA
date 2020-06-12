@@ -46,7 +46,7 @@
 * Lightning Sensor manufactured by AMS. Originally designed for application
 * on the Arduino Uno platform.
 **************************************************************************/
-#include "PWFusion_AS3935_I2c.h"
+#include "PWFusion_AS3935_I2C.h"
 
 PWF_AS3935_I2C::PWF_AS3935_I2C(uint8_t DEVADDx, uint8_t IRQx)
 {
