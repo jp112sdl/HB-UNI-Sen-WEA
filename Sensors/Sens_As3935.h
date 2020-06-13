@@ -24,7 +24,7 @@ volatile uint8_t  _lightning_isr_counter = 0;
 
 namespace as {
 
-template <uint8_t AS3935_CS_PIN_OR_ADDR = 7, uint8_t _AS3935_IRQ_PIN = 3>
+template <uint8_t _AS3935_CS_PIN_OR_ADDR = 7, uint8_t _AS3935_IRQ_PIN = 3>
 class Sens_As3935 : public Sensor {
 #ifdef AS3935_USE_I2C
     ::PWF_AS3935_I2C _lightningDetector;
@@ -33,7 +33,7 @@ class Sens_As3935 : public Sensor {
 #endif
     uint8_t _interrupt_src;
 public:
-  Sens_As3935 () : _lightningDetector(AS3935_CS_PIN_OR_ADDR, _AS3935_IRQ_PIN), _interrupt_src(0) {}
+  Sens_As3935 () : _lightningDetector(_AS3935_CS_PIN_OR_ADDR, _AS3935_IRQ_PIN), _interrupt_src(0) {}
     enum _AS3935_ENVIRONMENT {
         AS3935_ENVIRONMENT_OUTDOOR,
         AS3935_ENVIRONMENT_INDOOR
