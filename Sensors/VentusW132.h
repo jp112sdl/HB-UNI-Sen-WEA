@@ -30,24 +30,28 @@ class VentusW132 {
 
     }
 
-    uint8_t winddirValue() {
+    uint8_t readState() {
       uint8_t state = 0;
       for (uint8_t i = 0; i < 4; i++) {
         bool p = (pins[i] == A6 || pins[i] == A7) ? (analogRead(pins[i]) > 500) : digitalRead(pins[i]);
         state |= p << i;
         //DPRINT(F("read pin("));DDEC(pins[i]);DPRINT(") = ");DDECLN(p);
       }
+      return state;
+    }
 
+    uint8_t winddirValue(bool asIndex = false) {
+      uint8_t state = readState();
       //DPRINT(F("state="));DHEXLN(state);
 
-      if (state ==  N_MASK) return 0;
-      if (state == NO_MASK) return 15;
-      if (state ==  O_MASK) return 30;      
-      if (state == SO_MASK) return 45;      
-      if (state ==  S_MASK) return 60;      
-      if (state == SW_MASK) return 75;      
-      if (state ==  W_MASK) return 90;      
-      if (state == NW_MASK) return 105;  
+      if (state ==  N_MASK) return asIndex ? 0 : 0;
+      if (state == NO_MASK) return asIndex ? 1 : 15;
+      if (state ==  O_MASK) return asIndex ? 2 : 30;
+      if (state == SO_MASK) return asIndex ? 3 : 45;
+      if (state ==  S_MASK) return asIndex ? 4 : 60;
+      if (state == SW_MASK) return asIndex ? 5 : 75;
+      if (state ==  W_MASK) return asIndex ? 6 : 90;
+      if (state == NW_MASK) return asIndex ? 7 : 105;
       return 0;
     }    
 };

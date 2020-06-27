@@ -11,7 +11,7 @@
 
 #define  EI_NOTEXTERNAL
 #include <EnableInterrupt.h>
-#include <SPI.h>  // after including SPI Library - we can use LibSPI class
+#include <SPI.h>
 #include <AskSinPP.h>
 #include <Register.h>
 
@@ -42,9 +42,10 @@
 #define WINDSPEEDCOUNTER_PIN                 5     // Anemometer
 #define RAINQUANTITYCOUNTER_PIN              6     // Regenmengenmesser
 
-#define AS3935_IRQ_PIN                       3     // IRQ Pin des Blitzdetektors
-#define AS3935_CS_PIN                        7     // CS Pin des Blitzdetektors
+
 #define AS3935_ENVIRONMENT                   ::Sens_As3935<>::AS3935_ENVIRONMENT_OUTDOOR
+#define AS3935_IRQ_PIN                       3     // IRQ Pin des Blitzdetektors
+#define AS3935_CS_PIN_OR_ADDR                7     // SPI: CS Pin / I2C: Address (default: 0x03)
 
 #define WINDDIRECTION_PIN                    A2    // Pin, an dem der Windrichtungsanzeiger (RESISTORS oder PULSE) angeschlossen ist
 #define WINDDIRECTION_USE_RESISTORS
@@ -60,8 +61,16 @@
 //entspricht Windrichtung in ° 0 , 22.5 , 45 , 67.5 , 90 , 112.5 , 135 , 157.5 , 180 , 202.5 , 225 , 247.5 , 270 , 292.5 , 315 , 337.5
 #ifdef WINDDIRECTION_USE_PULSE
 const uint16_t WINDDIRS[] = { 70 ,   78 , 86 , 94   , 102,  108  , 116 ,    0  , 8   , 16    , 24  , 32    , 40  ,   48  , 56  , 62 };
-#else
+#endif
+#ifdef WINDDIRECTION_USE_RESISTORS
 const uint16_t WINDDIRS[] = { 58 ,   74 , 52 , 115  , 97 ,  328  , 302 ,  790  , 559 , 663   , 187 , 205   , 163 ,  420  , 129 , 153 };
+#endif
+#ifdef WINDDIRECTION_USE_VENTUSW132
+           //direction index  0   1   2    3    4    5    6    7
+const uint16_t WINDDIRS[] = { 0, 45, 90, 135, 180, 225, 270, 315 };
+#endif
+#ifdef WINDDIRECTION_USE_AS5600
+const uint16_t WINDDIRS[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 #endif
 
 #define WINDSPEED_MEASUREINTERVAL_SECONDS    5     // Messintervall (Sekunden) für Windgeschwindigkeit / Böen
@@ -339,8 +348,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 #endif
 
   public:
-    Sens_As3935<AS3935_IRQ_PIN, AS3935_CS_PIN> as3935;
-
+    Sens_As3935<AS3935_CS_PIN_OR_ADDR, AS3935_IRQ_PIN> as3935;
   public:
     WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), temperature(0), airPressure(0), humidity(0), brightness(0), israining(false), isheating(false), raincounter(0), windspeed(0), gustspeed(0), uvindex(0), lightningcounter(0), lightningdistance(0), winddir(0), winddirrange(0), stormUpperThreshold(0), stormLowerThreshold(0), initComplete(false), initLightningDetectorDone(false), short_interval_measure_count(0), israining_alarm_count(0), wind_and_uv_measure(*this), lightning_and_raining_check(*this)  {}
     virtual ~WeatherChannel () {}
@@ -563,8 +571,9 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 #endif
 
 #ifdef WINDDIRECTION_USE_VENTUSW132
-      winddir = ventus.winddirValue();
-      idxwdir = winddir * 10 / 75;
+      //winddir = ventus.winddirValue();
+      idxwdir = ventus.winddirValue(true);
+      winddir = WINDDIRS[idxwdir] / 3;
       DPRINT(F("WINDDIR value (=dir / 3) : ")); DDECLN(winddir);
 #endif
 
@@ -606,8 +615,10 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       winddirrange = 3; // 0  - 3 (0, 22,5, 45, 67,5°)
       int idxdiff = abs(idxwdir - idxoldwdir);
 
+      uint8_t num_winddirs = sizeof(WINDDIRS) / sizeof(uint16_t);
+
       if (idxdiff <= 3) winddirrange = idxdiff;
-      if (idxwdir <= 2 && idxoldwdir >= 13) winddirrange = (sizeof(WINDDIRS) / sizeof(uint16_t)) - idxdiff;
+      if (idxwdir <= 2 && idxoldwdir >= (num_winddirs-3)) winddirrange = num_winddirs - idxdiff;
       if (winddirrange > 3) winddirrange = 3;
 
       idxoldwdir = idxwdir;
