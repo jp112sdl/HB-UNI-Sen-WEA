@@ -10,10 +10,7 @@ install:
   - git clone --branch=master https://github.com/pa-pa/AskSinPP.git /usr/local/share/arduino/libraries/AskSinPP
   - git clone --branch=master https://github.com/rocketscream/Low-Power.git /usr/local/share/arduino/libraries/Low-Power
   - git clone --branch=master https://github.com/finitespace/BME280.git /usr/local/share/arduino/libraries/BME280
-  - mkdir /usr/local/share/arduino/libraries/I2C
-  - wget -O /usr/local/share/arduino/libraries/I2C/I2C.cpp https://raw.githubusercontent.com/ninjablocks/arduino/master/I2C/I2C.cpp
-  - wget -O /usr/local/share/arduino/libraries/I2C/I2C.h https://raw.githubusercontent.com/ninjablocks/arduino/master/I2C/I2C.h
-  - arduino --install-boards arduino:avr:1.6.207
+  - arduino --install-boards arduino:avr:1.8.2
 script:
   - arduino --verify --pref update.check=false --board arduino:avr:pro:cpu=8MHzatmega328 $PWD/HB-UNI-Sen-WEA.ino
 notifications:
