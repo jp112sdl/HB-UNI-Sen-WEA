@@ -19,9 +19,10 @@
 #include <sensors/Max44009.h>
 #include <sensors/Veml6070.h>
 #include "Sensors/Sens_Bme280.h"
-#include "Sensors/Sens_As3935.h"
+//#include "Sensors/Sens_As3935.h"
 #include "Sensors/Sens_As5600.h"
 #include "Sensors/VentusW132.h"
+#include "Sensors/PCF8574_WindDir.h"
 
 #define CONFIG_BUTTON_PIN                    8     // Anlerntaster-Pin
 
@@ -48,14 +49,17 @@
 #define AS3935_CS_PIN_OR_ADDR                7     // SPI: CS Pin / I2C: Address (default: 0x03)
 
 #define WINDDIRECTION_PIN                    A2    // Pin, an dem der Windrichtungsanzeiger (RESISTORS oder PULSE) angeschlossen ist
-#define WINDDIRECTION_USE_RESISTORS
+//#define WINDDIRECTION_USE_RESISTORS
 //#define WINDDIRECTION_USE_PULSE
+
 //#define WINDDIRECTION_USE_AS5600
+#define WINDDIRECTION_USE_PCF8574
+
 //#define WINDDIRECTION_USE_VENTUSW132
-#define VENTUSW132_PIN_N                     A0    // Pins für den Anschluss der
-#define VENTUSW132_PIN_O                     A1    // 4 Photodioden
-#define VENTUSW132_PIN_S                     A2    // des Ventus W132
-#define VENTUSW132_PIN_W                     A6    // Ersatz-Windmessers
+//#define VENTUSW132_PIN_N                     A0    // Pins für den Anschluss der
+//#define VENTUSW132_PIN_O                     A1    // 4 Photodioden
+//#define VENTUSW132_PIN_S                     A2    // des Ventus W132
+//#define VENTUSW132_PIN_W                     A6    // Ersatz-Windmessers
 
 //                             N                      O                           S                           W
 //entspricht Windrichtung in ° 0 , 22.5 , 45 , 67.5 , 90 , 112.5 , 135 , 157.5 , 180 , 202.5 , 225 , 247.5 , 270 , 292.5 , 315 , 337.5
@@ -65,7 +69,7 @@ const uint16_t WINDDIRS[] = { 70 ,   78 , 86 , 94   , 102,  108  , 116 ,    0  ,
 #ifdef WINDDIRECTION_USE_RESISTORS
 const uint16_t WINDDIRS[] = { 58 ,   74 , 52 , 115  , 97 ,  328  , 302 ,  790  , 559 , 663   , 187 , 205   , 163 ,  420  , 129 , 153 };
 #endif
-#ifdef WINDDIRECTION_USE_VENTUSW132
+#if defined(WINDDIRECTION_USE_VENTUSW132) || defined(WINDDIRECTION_USE_PCF8574)
            //direction index  0   1   2    3    4    5    6    7
 const uint16_t WINDDIRS[] = { 0, 45, 90, 135, 180, 225, 270, 315 };
 #endif
@@ -346,9 +350,14 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 #ifdef WINDDIRECTION_USE_VENTUSW132
     VentusW132<VENTUSW132_PIN_N, VENTUSW132_PIN_O, VENTUSW132_PIN_S, VENTUSW132_PIN_W> ventus;
 #endif
+#ifdef WINDDIRECTION_USE_PCF8574
+    PCF8574_WindDir<0x38> pcf;
+#endif
 
   public:
+#ifdef __SENSORS_AS3935_h__
     Sens_As3935<AS3935_CS_PIN_OR_ADDR, AS3935_IRQ_PIN> as3935;
+#endif
   public:
     WeatherChannel () : Channel(), Alarm(seconds2ticks(60)), temperature(0), airPressure(0), humidity(0), brightness(0), israining(false), isheating(false), raincounter(0), windspeed(0), gustspeed(0), uvindex(0), lightningcounter(0), lightningdistance(0), winddir(0), winddirrange(0), stormUpperThreshold(0), stormLowerThreshold(0), initComplete(false), initLightningDetectorDone(false), short_interval_measure_count(0), israining_alarm_count(0), wind_and_uv_measure(*this), lightning_and_raining_check(*this)  {}
     virtual ~WeatherChannel () {}
@@ -577,6 +586,12 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       DPRINT(F("WINDDIR value (=dir / 3) : ")); DDECLN(winddir);
 #endif
 
+#ifdef WINDDIRECTION_USE_PCF8574
+      idxwdir = pcf.winddirValue(true);
+      winddir = WINDDIRS[idxwdir] / 3;
+      DPRINT(F("WINDDIR value (=dir / 3) : ")); DDECLN(winddir);
+#endif
+
 #ifdef WINDDIRECTION_USE_PULSE
       uint8_t aVal = 0;
       uint8_t WINDDIR_TOLERANCE = 3;
@@ -596,7 +611,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       if (aVal >= 250) WINDDIR_TOLERANCE = 10;
 #endif
 
-#if !defined(WINDDIRECTION_USE_AS5600) && !defined(WINDDIRECTION_USE_VENTUSW132)
+#if !defined(WINDDIRECTION_USE_AS5600) && !defined(WINDDIRECTION_USE_VENTUSW132) && !defined(WINDDIRECTION_USE_PCF8574)
       for (uint8_t i = 0; i < sizeof(WINDDIRS) / sizeof(uint16_t); i++) {
         if (aVal < WINDDIRS[i] + WINDDIR_TOLERANCE && aVal > WINDDIRS[i] - WINDDIR_TOLERANCE) {
           idxwdir = i;
@@ -644,9 +659,9 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     }
 
     void measure_lightning() {
-#ifdef NSENSORS
-      lightningcounter++;
-      lightningdistance = random(15);
+#if defined(NSENSORS) || !defined(__SENSORS_AS3935_h__)
+      lightningcounter  = 0;
+      lightningdistance = 0;
 #else
       if (!initLightningDetectorDone) {
         as3935.init(this->getList1().LightningDetectorCapacitor(),
@@ -723,6 +738,9 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 #endif
 #ifdef WINDDIRECTION_USE_VENTUSW132
       ventus.init();
+#endif
+#ifdef WINDDIRECTION_USE_PCF8574
+      pcf.init();
 #endif
       sysclock.add(*this);
       sysclock.add(wind_and_uv_measure);
