@@ -22,7 +22,7 @@
 #include "Sensors/Sens_As3935.h"
 #include "Sensors/Sens_As5600.h"
 #include "Sensors/VentusW132.h"
-#include "Sensors/PCF8574_WindDir.h"
+//#include "Sensors/PCF8574_WindDir.h"
 
 #define CONFIG_BUTTON_PIN                    8     // Anlerntaster-Pin
 
