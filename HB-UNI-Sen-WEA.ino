@@ -19,7 +19,7 @@
 #include <sensors/Max44009.h>
 #include <sensors/Veml6070.h>
 #include "Sensors/Sens_Bme280.h"
-//#include "Sensors/Sens_As3935.h"
+#include "Sensors/Sens_As3935.h"
 #include "Sensors/Sens_As5600.h"
 #include "Sensors/VentusW132.h"
 #include "Sensors/PCF8574_WindDir.h"
@@ -49,11 +49,11 @@
 #define AS3935_CS_PIN_OR_ADDR                7     // SPI: CS Pin / I2C: Address (default: 0x03)
 
 #define WINDDIRECTION_PIN                    A2    // Pin, an dem der Windrichtungsanzeiger (RESISTORS oder PULSE) angeschlossen ist
-//#define WINDDIRECTION_USE_RESISTORS
+#define WINDDIRECTION_USE_RESISTORS
 //#define WINDDIRECTION_USE_PULSE
 
 //#define WINDDIRECTION_USE_AS5600
-#define WINDDIRECTION_USE_PCF8574
+//#define WINDDIRECTION_USE_PCF8574
 
 //#define WINDDIRECTION_USE_VENTUSW132
 //#define VENTUSW132_PIN_N                     A0    // Pins für den Anschluss der
