@@ -14,10 +14,10 @@ jobs:
         uses: arduino/setup-arduino-cli@v1.1.1
 
       - name: Install Libs and Cores
-        run: .github/workflows/install-deps.sh
+        run: ci/install-deps.sh
 
       - name: Download sketch
-        run: .github/workflows/download-sketch.sh
+        run: ci/download-sketch.sh
         
       - name: Compile Sketches
-        run: .github/workflows/sen-wea.sh
+        run: ci/sen-wea.sh
