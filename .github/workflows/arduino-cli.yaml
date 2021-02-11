@@ -13,3 +13,4 @@ metrics:
   enabled: false
 sketch:
   always_export_binaries: false
+on:
