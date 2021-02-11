@@ -29,7 +29,3 @@ wait
 arduino-cli core update-index
 echo Install arduino:avr core
 arduino-cli core install arduino:avr
-
-# Symlink AskSinPP lib
-echo Symlinking AskSinPP library
-ln -sf $(realpath $DIR/..) $(realpath $DIR/Arduino/libraries/AskSinPP)
