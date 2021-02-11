@@ -11,8 +11,6 @@ LIBS=(
 GIT_LIBS=(
   "https://github.com/GreyGnome/EnableInterrupt"
   "https://github.com/rocketscream/Low-Power.git"
-  "https://github.com/adafruit/Adafruit_Sensor"
-  "https://github.com/spease/Sensirion.git"
   "https://github.com/finitespace/BME280.git"
 )
 

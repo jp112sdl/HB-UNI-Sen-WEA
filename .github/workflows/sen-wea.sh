@@ -4,12 +4,12 @@ cd $DIR
 
 # Run tests
 HAS_ERROR=false
-  echo "Compiling $(basename $FILE)"
+  echo "Compiling HB-UNI-Sen-WEA"
   arduino-cli compile \
     --clean \
     --quiet \
     -b arduino:avr:pro:cpu=8MHzatmega328 \
-    "HB-UNI-Sen-WEA.ino"
+    $PWD/HB-UNI-Sen-WEA.ino
   [ $? -ne 0 ] && HAS_ERROR=true
 
 # AES?
