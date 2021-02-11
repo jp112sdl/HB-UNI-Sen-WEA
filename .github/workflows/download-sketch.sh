@@ -7,7 +7,7 @@ cd sketches
 
 # Sketches from Git-Repositories
 GIT_REPOS=(
-  "https://github.com/jp112sdl/HB-UNI-Sen-WEA/HB-UNI-Sen-WEA.git"
+  "https://github.com/jp112sdl/HB-UNI-Sen-WEA.git"
 )
 
 # Clone / update Repos in parallel
