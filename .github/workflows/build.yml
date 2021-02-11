@@ -17,7 +17,7 @@ jobs:
         run: .github/workflows/install-deps.sh
 
       - name: Download sketch
-        run: tests/download-sketch.sh
+        run: .github/workflows/download-sketch.sh
         
       - name: Compile Sketches
         run: .github/workflows/sen-wea.sh
