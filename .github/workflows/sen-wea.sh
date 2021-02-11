@@ -2,8 +2,7 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd $DIR
 
-mkdir -p sketch/HB-UNI-Sen-WEA
-cp /HB-UNI-Sen-WEA.ino ./
+cd /
 
 # Run tests
 HAS_ERROR=false
@@ -12,7 +11,7 @@ HAS_ERROR=false
     --clean \
     --quiet \
     -b arduino:avr:pro:cpu=8MHzatmega328 \
-    sketch/HB-UNI-Sen-WEA/
+    HB-UNI-Sen-WEA.ino
   [ $? -ne 0 ] && HAS_ERROR=true
 
 # AES?
