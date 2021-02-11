@@ -3,8 +3,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd $DIR
 SKETCHES=()
 
-# pa-pa
-SKETCHES+=(../HB-UNI-Sen-WEA/HB-UNI-Sen-WEA.ino)
+SKETCHES+=(sketches/HB-UNI-Sen-WEA/HB-UNI-Sen-WEA.ino)
 
 # Run tests
 HAS_ERROR=false
