@@ -2,6 +2,9 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd $DIR
 
+mkdir -p sketch/HB-UNI-Sen-WEA
+cp /HB-UNI-Sen-WEA.ino ./
+
 # Run tests
 HAS_ERROR=false
   echo "Compiling HB-UNI-Sen-WEA"
@@ -9,7 +12,7 @@ HAS_ERROR=false
     --clean \
     --quiet \
     -b arduino:avr:pro:cpu=8MHzatmega328 \
-    $PWD/HB-UNI-Sen-WEA.ino
+    sketch/HB-UNI-Sen-WEA/
   [ $? -ne 0 ] && HAS_ERROR=true
 
 # AES?
