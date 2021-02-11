@@ -16,5 +16,5 @@ jobs:
       - name: Install Libs and Cores
         run: .github/workflows/install-deps.sh
 
-      - name: Compile Sketches
-        run: .github/workflows/sen-wea.sh
+      #- name: Compile Sketches
+      #  run: .github/workflows/sen-wea.sh
