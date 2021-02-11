@@ -5,10 +5,6 @@ on:
 jobs:
   build-sketches:
     runs-on: ubuntu-20.04
-    strategy:
-      matrix:
-        include:
-          - name: sen-wea
 
     steps:
       # GIT Checkout
@@ -20,8 +16,5 @@ jobs:
       - name: Install Libs and Cores
         run: .github/workflows/install-deps.sh
 
-      - name: Download sketches
-        run: .github/workflows/download-sketch.sh
-
       - name: Compile Sketches
-        run: .github/workflows/${{ matrix.name }}.sh
+        run: .github/workflows/sen-wea.sh
