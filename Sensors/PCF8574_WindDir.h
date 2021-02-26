@@ -20,21 +20,19 @@ class PCF8574_WindDir {
       pcf8574.begin();  
 
     }
-
+    
     uint8_t winddirValue(bool asIndex = false) {
-      PCF8574::DigitalInput state = pcf8574.digitalReadAll();
-      //DPRINT(F("state="));DHEXLN(state);
-
-      if (state.p0) return asIndex ? 0 : 0;
-      if (state.p1) return asIndex ? 1 : 15;
-      if (state.p2) return asIndex ? 2 : 30;
-      if (state.p3) return asIndex ? 3 : 45;
-      if (state.p4) return asIndex ? 4 : 60;
-      if (state.p5) return asIndex ? 5 : 75;
-      if (state.p6) return asIndex ? 6 : 90;
-      if (state.p7) return asIndex ? 7 : 105;
+      if (pcf8574.digitalRead(P0) == 0) return asIndex ? 0 : 0;
+      if (pcf8574.digitalRead(P1) == 0) return asIndex ? 1 : 15;
+      if (pcf8574.digitalRead(P2) == 0) return asIndex ? 2 : 30;
+      if (pcf8574.digitalRead(P3) == 0) return asIndex ? 3 : 45;
+      if (pcf8574.digitalRead(P4) == 0) return asIndex ? 4 : 60;
+      if (pcf8574.digitalRead(P5) == 0) return asIndex ? 5 : 75;
+      if (pcf8574.digitalRead(P6) == 0) return asIndex ? 6 : 90;
+      if (pcf8574.digitalRead(P7) == 0) return asIndex ? 7 : 105;
       return 0;
-    }    
+    }   
+    
 };
 
 }
