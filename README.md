@@ -11,3 +11,4 @@ Besten Dank an [Christoph Herrmann](https://www.facebook.com/hermi.leipzig) für
 <br/>
 Hier meine Version unter Verwendung eines Huger Regenmengenmessers und noch vor der Installation des Regendetektors:
 ![complete_jp](Images/4.png)
+
