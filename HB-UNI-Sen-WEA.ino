@@ -18,7 +18,7 @@
 #include <MultiChannelDevice.h>
 #include <sensors/Max44009.h>
 #include <sensors/Veml6070.h>
-#include "Sensors/Sens_Bme280.h"
+#include "Sensors/Sens_Bmp280.h"
 #include "Sensors/Sens_As3935.h"
 #include "Sensors/Sens_As5600.h"
 #include "Sensors/VentusW132.h"
@@ -341,7 +341,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
     uint8_t       short_interval_measure_count;
     uint8_t       israining_alarm_count;
 
-    Sens_Bme280                 bme280;
+    Sens_Bmp280                 bmp280;
     Veml6070<VEML6070_1_T>      veml6070;
     MAX44009<>                  max44009;
 #ifdef WINDDIRECTION_USE_AS5600
@@ -508,7 +508,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
 
               bool dewfall = false;
               if (this->getList1().RaindetectorStallBizHeatOnDewfall() == true)
-                dewfall = bme280.present() ? (abs(bme280.temperature() - bme280.dewPoint()) < RAINDETECTOR_STALLBIZ_HEAT_DEWFALL_T) : false;
+                //dewfall = bme280.present() ? (abs(bme280.temperature() - bme280.dewPoint()) < RAINDETECTOR_STALLBIZ_HEAT_DEWFALL_T) : false;
 
               // Heizung schalten
               raindetector_heater(mustheat || dewfall);
@@ -714,10 +714,10 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       //DPRINT(F("        temperature    : ")); DDECLN(temperature);
       //DPRINT(F("        brightness     : ")); DDECLN(brightness);
 #else
-      bme280.measure(height);
-      temperature = bme280.temperature();
-      airPressure = bme280.pressureNN();
-      humidity    = bme280.humidity();
+      bmp280.measure();
+      temperature = bmp280.temperature();
+      airPressure = bmp280.pressure();
+      //humidity    = bme280.humidity();
 
       max44009.measure();
       brightness = max44009.brightness();
@@ -730,7 +730,7 @@ class WeatherChannel : public Channel<Hal, SensorList1, EmptyList, List4, PEERS_
       tick = seconds2ticks(3);	// first message in 3 sec.
 #ifndef NSENSORS
       max44009.init();
-      bme280.init();
+      bmp280.init();
       veml6070.init();
 #endif
 #ifdef WINDDIRECTION_USE_AS5600
