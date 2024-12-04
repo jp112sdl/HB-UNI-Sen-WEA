@@ -28,4 +28,4 @@ wait
 # Install Cores
 arduino-cli core update-index
 echo Install arduino:avr core
-arduino-cli core install arduino:avr:1.8.2
+arduino-cli core install arduino:avr@1.8.2
